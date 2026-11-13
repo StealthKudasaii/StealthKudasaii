@@ -1,0 +1,65 @@
+# Copie ce fichier en config.yaml et adapte-le.
+# Les secrets (clés, mots de passe) vont dans .env, JAMAIS ici.
+
+# true = le bot lit, analyse et te notifie, mais n'envoie AUCUN ordre.
+# Commence comme ça, puis passe à false sur un compte DÉMO.
+dry_run: true
+
+telegram:
+  # Le groupe à suivre : @nom_public, lien t.me/..., ou ID numérique (-100...).
+  # Lance `python -m bot.list_chats` pour trouver l'ID de ton groupe.
+  source_chats:
+    - -1001234567890
+  # Optionnel : ne réagir qu'aux messages de ces auteurs (IDs). Vide = tout le monde.
+  allowed_senders: []
+  # Où le bot t'envoie ses notifications ("me" = tes Messages enregistrés).
+  notify_chat: me
+
+mt5:
+  # Le nom exact de l'or chez TON broker : XAUUSD, XAUUSD.m, GOLD, XAUUSD+ ...
+  symbol: XAUUSD
+  magic: 770077          # identifiant des ordres du bot (ne touche pas aux tiens)
+  deviation_points: 30   # slippage max accepté à l'exécution, en points
+
+ai:
+  # Modèle qui lit chaque message (beaucoup de messages, tâche simple).
+  parser_model: claude-haiku-5-5
+  # Modèle qui analyse le graphique au moment d'un signal.
+  analyst_model: claude-opus-5-5
+  analyst_effort: medium       # low | medium | high
+  # filter   = l'IA peut refuser un signal ou réduire la taille
+  # advisory = l'IA donne son avis dans la notification, mais ne bloque rien
+  # off      = pas d'analyse
+  analyst_mode: filter
+  # Si l'IA est injoignable : "approve" = on suit le signal à risque réduit, "reject" = on ne prend pas.
+  on_analyst_error: approve
+  on_error_risk_multiplier: 0.5
+
+risk:
+  risk_per_trade_pct: 1.0        # % du solde risqué si le SL est touché (toutes parts confondues)
+  max_daily_loss_pct: 3.0        # perte du jour (réalisée + risque ouvert) au-delà de laquelle on stoppe
+  max_open_signals: 2            # nombre de signaux ouverts en même temps
+  max_trades_per_day: 6
+  max_spread: 0.60               # spread max en $ (0.60 = 60 cents sur l'or)
+  min_sl_distance: 1.5           # SL trop serré = refus (en $)
+  max_sl_distance: 25.0          # SL trop large = refus (en $)
+  max_entry_drift: 2.0           # si le prix s'est éloigné de plus de X $ de l'entrée du signal...
+  far_entry_action: limit        # ... "limit" = ordre limite au prix du signal, "skip" = on laisse tomber
+  limit_expiry_minutes: 120
+  duplicate_window_minutes: 10   # ignore un 2e signal identique (même sens) dans cette fenêtre
+  # Heures (heure du serveur MT5) où on n'ouvre rien : rollover, spreads énormes.
+  no_trade_windows:
+    - ["23:50", "01:10"]
+
+management:
+  # Répartition de la position entre les TP. Si le signal a moins de TP, on répartit sur ceux qui existent.
+  tp_split: [0.5, 0.3, 0.2]
+  # Passer le SL au break-even quand le prix atteint ce TP (1 = TP1).
+  breakeven_after_tp: 1
+  # Marge au-dessus de l'entrée pour couvrir le spread/commission quand on passe au BE (en $).
+  breakeven_buffer: 0.30
+  # Après TP2, remonter le SL sur TP1, après TP3 sur TP2, etc.
+  trail_to_previous_tp: true
+  # Si le signal n'a pas de TP : TP calculés en multiples du risque (R).
+  default_tp_r: [1.0, 2.0, 3.0]
+  check_interval_seconds: 2
