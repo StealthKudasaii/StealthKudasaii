@@ -24,7 +24,15 @@ class Action(str, Enum):
     CLOSE_ALL = "CLOSE_ALL"        # fermer tout le trade
     CLOSE_PARTIAL = "CLOSE_PARTIAL"  # prendre une partie des gains
     CANCEL = "CANCEL"              # annuler un signal pas encore déclenché
+    SKIP_NEXT = "SKIP_NEXT"        # "ne prenez pas le prochain trade"
     IGNORE = "IGNORE"              # bavardage, résultat, pub...
+
+
+class TpChange(BaseModel):
+    """Un TP précis à changer : "Modifiez le TP2 à 4085" -> index=2, price=4085."""
+
+    index: int = Field(description="Numéro du TP (1 = TP1, 2 = TP2...).")
+    price: float
 
 
 class ParsedMessage(BaseModel):
@@ -40,6 +48,19 @@ class ParsedMessage(BaseModel):
     take_profits: list[float] = Field(default_factory=list)
     close_fraction: Optional[float] = Field(
         None, description="Pour CLOSE_PARTIAL : fraction à fermer (0.5 = moitié)."
+    )
+    tp_changes: list[TpChange] = Field(
+        default_factory=list,
+        description="Pour MODIFY_TP : chaque TP modifié avec son numéro. 'Modifiez le TP2 à 4085' -> "
+                    "[{index: 2, price: 4085}]. 'Le TP c'est 3900' sans numéro -> index 1.",
+    )
+    extra_actions: list[Action] = Field(
+        default_factory=list,
+        description="Autres consignes du MÊME message, en plus de `action`, dans l'ordre. "
+                    "'Coupez la moitié et mettez BE' -> action CLOSE_PARTIAL, extra_actions [MOVE_SL_BE].",
+    )
+    skip_count: Optional[int] = Field(
+        None, description="Pour SKIP_NEXT : nombre de prochains signaux à ne pas prendre (1 par défaut)."
     )
     confidence: float = Field(description="0 à 1 : certitude que l'interprétation est correcte.")
     notes: str = Field("", description="Courte explication, en français.")

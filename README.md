@@ -62,6 +62,19 @@ La librairie Python de MetaTrader 5 ne fonctionne **que sous Windows**. Un VPS W
 2. **`dry_run: false` sur un compte démo**, pendant 2 à 4 semaines : vrais ordres, argent fictif. Compare avec les résultats annoncés par le groupe.
 3. **En réel**, seulement si les résultats en démo sont bons, avec un petit `risk_per_trade_pct` (0,5 %) au début.
 
+## Backtest : rejouer les derniers jours du groupe
+
+Avant de risquer quoi que ce soit, regarde ce que le bot *aurait* fait sur les jours passés. Ferme le bot et laisse MT5 ouvert :
+
+```
+python -m bot.backtest --days 5                # avec l'analyse IA (≈ 0,08 $ par signal)
+python -m bot.backtest --days 5 --no-analyst   # sans le filtre IA, quasi gratuit
+```
+
+Le script télécharge les messages du groupe et les bougies de l'or chez ton broker. Il rejoue ensuite chaque message à son heure : l'IA ne voit que le graphique tel qu'il était à ce moment-là. Le prix avance minute par minute (TP, SL, BE, trailing, consignes du groupe). Le rapport est écrit dans `data/backtest/` : résumé, liste des trades, raisons des refus et journal complet.
+
+Les réponses de l'IA sont mises en cache. Si tu relances après avoir changé `config.yaml` (risque, `tp_split`, BE…), seuls les nouveaux appels sont payés. `--refresh` re-télécharge les données. `--balance 10000` règle le solde simulé (en $).
+
 ## Commandes Telegram (dans tes « Messages enregistrés »)
 
 | Commande | Effet |

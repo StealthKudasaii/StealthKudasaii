@@ -28,6 +28,24 @@ def leg_index(comment: str, sid: int) -> Optional[int]:
     return None
 
 
+def message_filter(tg, fwd_name: Optional[str]) -> tuple[bool, bool]:
+    """(signal autorisé, consignes autorisées) selon telegram.forwarded_from."""
+    if not tg.forwarded_from:
+        return True, True
+    if fwd_name and any(s.lower() in fwd_name.lower() for s in tg.forwarded_from):
+        return True, True
+    return tg.main_signals, tg.commands_from_everyone
+
+
+def main_sl_limit(tg, fwd_name: Optional[str]) -> Optional[float]:
+    """SL max (en $) pour un signal du groupe principal (pas transféré depuis forwarded_from), sinon None."""
+    if not tg.forwarded_from or not tg.main_signals or tg.main_max_sl <= 0:
+        return None
+    if fwd_name and any(s.lower() in fwd_name.lower() for s in tg.forwarded_from):
+        return None
+    return tg.main_max_sl
+
+
 class Engine:
     def __init__(self, cfg: Config, broker: Broker, store: Store, ai=None, notify: Optional[Notify] = None):
         self.cfg = cfg
@@ -36,6 +54,7 @@ class Engine:
         self.ai = ai
         self._notify = notify
         self.paused = False
+        self.skip_next = 0  # "ne prenez pas le prochain trade" : nb de signaux à sauter
         self._lock = asyncio.Lock()  # un seul ordre/une seule modif à la fois
 
     async def notify(self, text: str) -> None:
@@ -92,8 +111,10 @@ class Engine:
 
     # ------------------------------------------------------------ messages
     async def handle_message(self, chat_id: int, msg_id: int, text: str,
-                             reply_to: Optional[int] = None, edited: bool = False) -> None:
-        if not text or not text.strip():
+                             reply_to: Optional[int] = None, edited: bool = False,
+                             allow_signal: bool = True, allow_command: bool = True,
+                             max_sl: Optional[float] = None) -> None:
+        if not text or not text.strip() or not (allow_signal or allow_command):
             return
         reply_text = self.store.message_text(chat_id, reply_to) if reply_to else None
         try:
@@ -104,6 +125,10 @@ class Engine:
             return
         self.store.save_message(chat_id, msg_id, text, parsed.model_dump(mode="json") if parsed else None)
         if parsed is None or parsed.action == Action.IGNORE or not parsed.symbol_is_gold:
+            return
+        is_signal = parsed.action == Action.NEW_SIGNAL
+        if (is_signal and not allow_signal) or (not is_signal and not allow_command):
+            log.info("Message %s ignoré (filtre messages transférés)", msg_id)
             return
         log.info("Message %s interprété : %s", msg_id, parsed.model_dump(mode="json"))
 
@@ -117,7 +142,7 @@ class Engine:
             if parsed.action == Action.NEW_SIGNAL:
                 if existing is not None:
                     return  # déjà traité
-                await self.on_new_signal(parsed, msg_id, text)
+                await self.on_new_signal(parsed, msg_id, text, max_sl)
             else:
                 await self.on_command(parsed, reply_to, text)
 
@@ -156,7 +181,8 @@ class Engine:
             mult = max(mult, 1.0)
         return max(0.0, min(1.0, mult)), verdict, ""
 
-    async def on_new_signal(self, parsed: ParsedMessage, msg_id: int, text: str) -> None:
+    async def on_new_signal(self, parsed: ParsedMessage, msg_id: int, text: str,
+                            max_sl: Optional[float] = None) -> None:
         if parsed.confidence < 0.7:
             await self.notify(f"🤔 Signal ambigu, PAS pris (certitude {parsed.confidence:.0%}) : {parsed.notes}\n« {text[:300]} »")
             return
@@ -165,6 +191,13 @@ class Engine:
         except Rejected as e:
             await self.notify(f"⛔ Signal ignoré : {e}\n« {text[:300]} »")
             return
+        if max_sl is not None:
+            entry = signal.entry_high if signal.side == Side.BUY else signal.entry_low
+            dist = abs(entry - signal.stop_loss)
+            if dist > max_sl:
+                await self.notify(f"⛔ Signal du groupe principal ignoré : SL à {dist:.2f} $ de l'entrée "
+                                  f"(max {max_sl:g} $).\n« {text[:300]} »")
+                return
         head = (f"{'🟢 BUY' if signal.side == Side.BUY else '🔴 SELL'} GOLD "
                 f"{signal.entry_low}-{signal.entry_high} SL {signal.stop_loss} TP {signal.take_profits}")
         server_time = await self.call(self.broker.server_time)
@@ -172,6 +205,13 @@ class Engine:
         if self.paused:
             self.store.add_signal(signal, "rejected", server_time)
             await self.notify(f"⏸ Bot en pause, signal non pris.\n{head}")
+            return
+
+        if self.skip_next > 0:
+            self.skip_next -= 1
+            self.store.add_signal(signal, "rejected", server_time)
+            reste = f" ({self.skip_next} encore à sauter)" if self.skip_next else ""
+            await self.notify(f"⏭ Signal sauté (consigne « ne prenez pas le prochain trade »){reste}.\n{head}")
             return
 
         mult, verdict, note = await self.get_verdict(signal)
@@ -252,13 +292,34 @@ class Engine:
         if p.confidence < 0.6:
             await self.notify(f"🤔 Consigne ambiguë, rien fait ({p.notes}) :\n« {text[:300]} »")
             return
-        row = self.target_signal(reply_to)
-        if row is None:
-            log.info("Consigne %s mais aucun trade ouvert", p.action)
+        actions = [p.action]
+        for a in p.extra_actions:  # "coupez la moitié ET mettez BE" : plusieurs consignes, dans l'ordre
+            if a not in actions and a not in (Action.NEW_SIGNAL, Action.IGNORE):
+                actions.append(a)
+        for action in actions:
+            if action == Action.SKIP_NEXT:
+                n = self.skip_next = max(1, p.skip_count or 1)
+                await self.notify("⏭ OK : le prochain signal ne sera pas pris." if n == 1
+                                  else f"⏭ OK : les {n} prochains signaux ne seront pas pris.")
+                continue
+            row = self.target_signal(reply_to)
+            if row is None:
+                log.info("Consigne %s mais aucun trade ouvert", action)
+                continue
+            await self.apply_command(action, p, row)
+            if action == Action.CLOSE_ALL:
+                break  # plus rien à gérer après une fermeture complète
+
+    async def apply_command(self, action: Action, p: ParsedMessage, row) -> None:
+        mgmt = self.cfg.management
+        ignored = ((action == Action.MOVE_SL_BE and not mgmt.follow_group_be)
+                   or (action in (Action.CLOSE_ALL, Action.CLOSE_PARTIAL) and not mgmt.follow_group_closes))
+        if ignored:
+            log.info("Consigne %s ignorée (réglage)", action)
             return
         sid = row["id"]
         side = row_side(row)
-        if p.action == Action.MOVE_SL_BE:
+        if action == Action.MOVE_SL_BE:
             positions, _ = await self.call(self.legs, sid)
             if not positions:
                 await self.notify(f"ℹ️ BE demandé sur #{sid} mais pas de position ouverte.")
@@ -266,15 +327,17 @@ class Engine:
             sign = 1 if side == Side.BUY else -1
             be = round(positions[0][1].open_price + sign * self.cfg.management.breakeven_buffer, 2)
             await self.set_sl(row, be, reason="consigne du groupe : BE")
-        elif p.action == Action.MODIFY_SL and p.stop_loss:
+        elif action == Action.MODIFY_SL and p.stop_loss:
             await self.set_sl(row, p.stop_loss, reason="consigne du groupe")
-        elif p.action == Action.MODIFY_TP and p.take_profits:
+        elif action == Action.MODIFY_TP and p.tp_changes:
+            await self.set_tp_levels(row, {c.index: c.price for c in p.tp_changes})
+        elif action == Action.MODIFY_TP and p.take_profits:
             await self.set_tps(row, p.take_profits)
-        elif p.action == Action.CLOSE_ALL:
+        elif action == Action.CLOSE_ALL:
             await self.close_signal(row, reason="consigne du groupe")
-        elif p.action == Action.CLOSE_PARTIAL:
+        elif action == Action.CLOSE_PARTIAL:
             await self.close_partial(row, p.close_fraction or 0.5)
-        elif p.action == Action.CANCEL:
+        elif action == Action.CANCEL:
             _, orders = await self.call(self.legs, sid)
             for _, o in orders:
                 await self.call(self.broker.cancel_order, o.ticket)
@@ -311,6 +374,32 @@ class Engine:
                 await self.call(self.broker.modify_order, o.ticket, o.price, o.sl, tps[i - 1])
         self.store.update_signal(sid, tps=tps)
         await self.notify(f"🎯 #{sid} : TP mis à jour {tps}.")
+
+    async def set_tp_levels(self, row, changes: dict[int, float]) -> None:
+        """Change seulement les TP désignés par leur numéro ("TP2 à 4085"), sans toucher aux autres."""
+        sid = row["id"]
+        tps = row_tps(row)
+        valid = {i: price for i, price in changes.items() if 1 <= i <= len(tps)}
+        ignored = sorted(set(changes) - set(valid))
+        if not valid:
+            await self.notify(f"ℹ️ #{sid} : TP{', TP'.join(map(str, ignored))} demandé, mais ce trade n'a que "
+                              f"{len(tps)} TP. Rien changé.")
+            return
+        positions, orders = await self.call(self.legs, sid)
+        for i, p in positions:
+            if i in valid:
+                await self.call(self.broker.modify_position, p.ticket, p.sl, valid[i])
+        for i, o in orders:
+            if i in valid:
+                await self.call(self.broker.modify_order, o.ticket, o.price, o.sl, valid[i])
+        for i, price in valid.items():
+            tps[i - 1] = price
+        self.store.update_signal(sid, tps=tps)
+        changed = ", ".join(f"TP{i} → {price}" for i, price in sorted(valid.items()))
+        msg = f"🎯 #{sid} : {changed}."
+        if ignored:
+            msg += f" (TP{', TP'.join(map(str, ignored))} ignoré : ce trade n'a que {len(tps)} TP)"
+        await self.notify(msg)
 
     async def close_signal(self, row, reason: str) -> None:
         sid = row["id"]

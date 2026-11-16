@@ -19,7 +19,7 @@ from pathlib import Path
 from .ai import AI
 from .broker import MT5Broker
 from .config import env, load_config
-from .engine import Engine
+from .engine import Engine, main_sl_limit, message_filter
 from .store import Store
 
 
@@ -67,7 +67,16 @@ async def run(config_path: str) -> None:
         if allowed and msg.sender_id not in allowed:
             return
         reply_to = msg.reply_to.reply_to_msg_id if msg.reply_to else None
-        await engine.handle_message(event.chat_id, msg.id, msg.message or "", reply_to, edited)
+        fwd_name = None
+        if msg.fwd_from is not None:
+            try:
+                chat = await msg.forward.get_chat() if msg.forward else None
+            except Exception:
+                chat = None
+            fwd_name = getattr(chat, "title", None) or msg.fwd_from.from_name
+        allow_signal, allow_command = message_filter(cfg.telegram, fwd_name)
+        await engine.handle_message(event.chat_id, msg.id, msg.message or "", reply_to, edited,
+                                    allow_signal, allow_command, main_sl_limit(cfg.telegram, fwd_name))
 
     @client.on(events.NewMessage(chats=sources))
     async def _new(event):

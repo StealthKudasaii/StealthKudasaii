@@ -13,6 +13,14 @@ class TelegramCfg(BaseModel):
     source_chats: list[Union[int, str]]
     allowed_senders: list[int] = Field(default_factory=list)
     notify_chat: Union[int, str] = "me"
+    # Ne prendre que les signaux TRANSFÉRÉS depuis ces canaux (bout du nom, ex. "SCALPING"). Vide = tous les signaux.
+    forwarded_from: list[str] = Field(default_factory=list)
+    # Avec forwarded_from : suivre quand même les consignes (BE, close...) écrites directement dans le groupe ?
+    commands_from_everyone: bool = True
+    # Avec forwarded_from : prendre AUSSI les signaux écrits directement dans le groupe (« groupe principal ») ?
+    main_signals: bool = False
+    # ... seulement si leur SL est à X $ maximum de l'entrée (0 = pas de limite)
+    main_max_sl: float = 0.0
 
 
 class MT5Cfg(BaseModel):
@@ -32,12 +40,14 @@ class AICfg(BaseModel):
 
 class RiskCfg(BaseModel):
     risk_per_trade_pct: float = 1.0
+    fixed_lot: float = 0.0  # > 0 : lot total fixe par signal (réparti entre les TP), remplace risk_per_trade_pct
     max_daily_loss_pct: float = 3.0
     max_open_signals: int = 2
     max_trades_per_day: int = 6
     max_spread: float = 0.60
     min_sl_distance: float = 1.5
     max_sl_distance: float = 25.0
+    max_tp1_r: float = 6.0  # TP1 plus loin que X fois le risque = faute de frappe probable -> refus (0 = pas de contrôle)
     max_entry_drift: float = 2.0
     far_entry_action: Literal["limit", "skip"] = "limit"
     limit_expiry_minutes: int = 120
@@ -59,6 +69,10 @@ class ManagementCfg(BaseModel):
     trail_to_previous_tp: bool = True
     default_tp_r: list[float] = Field(default_factory=lambda: [1.0, 2.0, 3.0])
     check_interval_seconds: float = 2.0
+    # Suivre les consignes de gestion du groupe ? (false = le bot gère seul avec ses propres règles)
+    follow_group_be: bool = True       # « SL BE », « sécurisez »
+    follow_group_closes: bool = True   # « close all », « coupez la moitié »
+    max_tps: int = 0                   # 1 = toute la position vise le TP1 ; 0 = tous les TP du signal
 
 
 class Config(BaseModel):

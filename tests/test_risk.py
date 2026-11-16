@@ -103,3 +103,38 @@ def test_protective_sl_breakeven_then_trail():
     assert protective_sl(Side.BUY, 2350, tps, 2, 2350.3, MGMT) == 2355
     assert protective_sl(Side.BUY, 2350, tps, 2, 2355, MGMT) is None  # ne recule jamais
     assert protective_sl(Side.SELL, 2350, [2345, 2340], 1, 2360, MGMT) == 2349.7
+
+
+def test_typo_tp1_rejected():
+    """Signal réel : BUY 3896, SL 3888, TP1 3990 (pour 3900) -> TP1 à ~12R, refusé."""
+    with pytest.raises(Rejected, match="TP1 suspect"):
+        plan_trade(buy(entry=3896, sl=3888, tps=(3990, 3995, 4000)), state(bid=3896, ask=3896.25),
+                   SPEC, lpl, RISK, MGMT)
+
+
+def test_far_tp2_is_fine_when_tp1_is_normal():
+    """Signal réel : SELL @4063-4065, SL 4067, TP1 4054, TP2 4010 -> TP2 lointain mais TP1 normal : accepté."""
+    sig = Signal(Side.SELL, 4063, 4065, 4067, [4054, 4010])
+    plan = plan_trade(sig, state(bid=4064, ask=4064.25), SPEC, lpl, RISK, MGMT)
+    assert [l.tp for l in plan.legs] == [4054, 4010]
+
+
+def test_fixed_lot_ignores_risk_pct_and_ai_reduce():
+    """Lot fixe 0.03 : même taille quel que soit le SL ou un REDUCE de l'IA, réparti 0.01 par TP."""
+    risk = RISK.model_copy(update={"fixed_lot": 0.03})
+    small = state(balance=290)
+    plan = plan_trade(buy(entry=2350, sl=2342), small, SPEC, lpl, risk, MGMT, risk_multiplier=0.5)
+    assert plan.total_volume == pytest.approx(0.03)
+    assert [l.volume for l in plan.legs] == [0.01, 0.01, 0.01]
+    assert plan.risk_money == pytest.approx(0.03 * 8.25 * 100)
+    assert any("lot fixe" in n for n in plan.notes)
+    with pytest.raises(Rejected, match="multiplicateur 0"):
+        plan_trade(buy(), small, SPEC, lpl, risk, MGMT, risk_multiplier=0)
+    with pytest.raises(Rejected, match="limite de perte"):
+        plan_trade(buy(), state(balance=290, realized_today=-9.0), SPEC, lpl, risk, MGMT)
+
+
+def test_daily_limit_can_be_disabled():
+    risk = RISK.model_copy(update={"fixed_lot": 0.03, "max_daily_loss_pct": 0})
+    plan = plan_trade(buy(), state(balance=290, realized_today=-50.0, open_risk_money=30.0), SPEC, lpl, risk, MGMT)
+    assert plan.total_volume == pytest.approx(0.03)
