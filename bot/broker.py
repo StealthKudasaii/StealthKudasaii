@@ -37,6 +37,7 @@ class Broker(Protocol):
     def close_position(self, ticket: int, volume: Optional[float] = None) -> OrderResult: ...
     def cancel_order(self, ticket: int) -> OrderResult: ...
     def realized_pnl_since(self, since: datetime) -> float: ...
+    def signal_pnl(self, comment_prefix: str, since: datetime) -> float: ...
 
 
 def round_volume(volume: float, spec: SymbolSpec) -> float:
@@ -143,6 +144,15 @@ class MT5Broker:
         return sum(d.profit + d.commission + d.swap + getattr(d, "fee", 0.0)
                    for d in deals if d.magic == self.magic and d.symbol == self.symbol)
 
+    def signal_pnl(self, comment_prefix: str, since: datetime) -> float:
+        """P&L réalisé d'un signal : toutes les positions dont l'ordre d'ouverture porte son commentaire."""
+        with self._lock:
+            deals = self.mt5.history_deals_get(since, datetime.now() + timedelta(days=1)) or ()
+        mine = [d for d in deals if d.magic == self.magic and d.symbol == self.symbol]
+        positions = {d.position_id for d in mine if d.comment.startswith(comment_prefix)}
+        return sum(d.profit + d.commission + d.swap + getattr(d, "fee", 0.0)
+                   for d in mine if d.position_id in positions)
+
     # -- écriture ------------------------------------------------------------
     def _filling(self) -> int:
         with self._lock:
@@ -227,7 +237,7 @@ class PaperBroker:
         self._positions: dict[int, Position] = {}
         self._orders: dict[int, PendingOrder] = {}
         self._next = 1000
-        self.realized: list[tuple[datetime, float]] = []
+        self.realized: list[tuple[datetime, float, str]] = []
         self.now = datetime(2026, 11, 13, 12, 0)
         self.bars: dict[str, list[Bar]] = {}
 
@@ -257,7 +267,7 @@ class PaperBroker:
         sign = 1 if p.side == Side.BUY else -1
         pnl = (price - p.open_price) * sign * vol * self.contract_size
         self._balance += pnl
-        self.realized.append((self.now, pnl))
+        self.realized.append((self.now, pnl, p.comment))
         if vol >= p.volume - 1e-9:
             del self._positions[p.ticket]
         else:
@@ -301,6 +311,10 @@ class PaperBroker:
         return OrderResult(True, t, price, "placed")
 
     def positions(self) -> list[Position]:
+        for p in self._positions.values():  # P&L flottant au prix actuel
+            exit_price = self.bid if p.side == Side.BUY else self.bid + self.spread
+            sign = 1 if p.side == Side.BUY else -1
+            p.profit = round((exit_price - p.open_price) * sign * p.volume * self.contract_size, 2)
         return list(self._positions.values())
 
     def pending_orders(self) -> list[PendingOrder]:
@@ -332,4 +346,7 @@ class PaperBroker:
         return OrderResult(self._orders.pop(ticket, None) is not None, ticket)
 
     def realized_pnl_since(self, since: datetime) -> float:
-        return sum(pnl for t, pnl in self.realized if t >= since)
+        return sum(pnl for t, pnl, _ in self.realized if t >= since)
+
+    def signal_pnl(self, comment_prefix: str, since: datetime) -> float:
+        return sum(pnl for t, pnl, c in self.realized if t >= since and c.startswith(comment_prefix))

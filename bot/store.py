@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS signals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     msg_id INTEGER, side TEXT, entry_low REAL, entry_high REAL, sl REAL, tps TEXT,
     status TEXT, tps_reached INTEGER DEFAULT 0, legs INTEGER DEFAULT 0,
-    entry REAL, plan TEXT, verdict TEXT, created TEXT, server_time TEXT
+    entry REAL, plan TEXT, verdict TEXT, created TEXT, server_time TEXT,
+    pnl REAL, reason TEXT, closed_at TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, signal_id INTEGER, kind TEXT, detail TEXT, created TEXT
@@ -34,6 +35,12 @@ class Store:
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        # Mise à niveau d'une base créée par une version précédente du bot
+        cols = {r["name"] for r in self.db.execute("PRAGMA table_info(signals)")}
+        for col, typ in (("pnl", "REAL"), ("reason", "TEXT"), ("closed_at", "TEXT")):
+            if col not in cols:
+                self.db.execute(f"ALTER TABLE signals ADD COLUMN {col} {typ}")
+        self.db.commit()
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
@@ -52,14 +59,15 @@ class Store:
 
     # -- signaux -------------------------------------------------------------
     def add_signal(self, s: Signal, status: str, server_time: datetime, entry: float = 0.0,
-                   plan: Optional[dict] = None, verdict: Optional[dict] = None, legs: int = 0) -> int:
+                   plan: Optional[dict] = None, verdict: Optional[dict] = None, legs: int = 0,
+                   reason: str = "") -> int:
         cur = self.db.execute(
             "INSERT INTO signals (msg_id, side, entry_low, entry_high, sl, tps, status, legs, entry, plan, verdict,"
-            " created, server_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " created, server_time, reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (s.source_msg_id, s.side.value, s.entry_low, s.entry_high, s.stop_loss, json.dumps(s.take_profits),
              status, legs, entry, json.dumps(plan, ensure_ascii=False) if plan else None,
              json.dumps(verdict, ensure_ascii=False) if verdict else None, self._now(),
-             server_time.isoformat(timespec="seconds")),
+             server_time.isoformat(timespec="seconds"), reason),
         )
         self.db.commit()
         return int(cur.lastrowid)
@@ -82,6 +90,21 @@ class Store:
             "SELECT * FROM signals WHERE status IN ('open','closed') AND server_time >= ?",
             (server_day_start.isoformat(timespec="seconds"),),
         ).fetchall()
+
+    def signal(self, sid: int) -> Optional[sqlite3.Row]:
+        return self.db.execute("SELECT * FROM signals WHERE id=?", (sid,)).fetchone()
+
+    def history(self, limit: int = 100) -> list[sqlite3.Row]:
+        return self.db.execute("SELECT * FROM signals ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+
+    def closed_with_pnl(self) -> list[sqlite3.Row]:
+        return self.db.execute(
+            "SELECT * FROM signals WHERE status='closed' AND pnl IS NOT NULL ORDER BY COALESCE(closed_at, created)"
+        ).fetchall()
+
+    def message_for(self, msg_id: int) -> Optional[str]:
+        row = self.db.execute("SELECT text FROM messages WHERE msg_id=? ORDER BY created DESC", (msg_id,)).fetchone()
+        return row["text"] if row else None
 
     def log(self, signal_id: Optional[int], kind: str, detail: str) -> None:
         self.db.execute("INSERT INTO events (signal_id, kind, detail, created) VALUES (?,?,?,?)",

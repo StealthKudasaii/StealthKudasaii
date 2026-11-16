@@ -5,6 +5,14 @@
 # Commence comme ça, puis passe à false sur un compte DÉMO.
 dry_run: true
 
+# Le site de contrôle : ouvre http://127.0.0.1:8080 sur le VPS. Mot de passe : PANEL_PASSWORD dans .env
+panel:
+  enabled: true
+  # 127.0.0.1 = seulement depuis le VPS (ou ton téléphone via Tailscale, voir README) -> recommandé
+  # 0.0.0.0   = ouvert sur Internet (mot de passe quand même, mais plus exposé)
+  host: 127.0.0.1
+  port: 8080
+
 telegram:
   # Le groupe à suivre : @nom_public, lien t.me/..., ou ID numérique (-100...).
   # Lance `python -m bot.list_chats` pour trouver l'ID de ton groupe.

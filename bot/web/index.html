@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot Or</title>
+<meta name="theme-color" content="#0d1117">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c232c; --line: #2a323d;
+    --text: #e6edf3; --muted: #8b949e; --gold: #e3b341; --green: #3fb950; --red: #f85149;
+    --blue: #58a6ff; --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel2);
+           color: var(--text); border-radius: 8px; padding: 8px 14px; }
+  button:hover { border-color: var(--muted); }
+  button.danger { border-color: #5c2a2a; color: var(--red); }
+  button.primary { background: var(--gold); color: #1a1300; border-color: var(--gold); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: wait; }
+  input, select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+                  border-radius: 8px; padding: 8px 10px; width: 100%; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 20px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  header h1 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); }
+  header .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { white-space: nowrap; display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 13px;
+          border: 1px solid var(--line); color: var(--muted); }
+  .pill.on { color: var(--green); border-color: #234d2c; }
+  .pill.off { color: var(--gold); border-color: #5a4714; }
+  .pill.warn { color: var(--red); border-color: #5c2a2a; }
+  nav { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  nav button { border: none; background: none; border-radius: 0; padding: 10px 14px; color: var(--muted);
+               border-bottom: 2px solid transparent; white-space: nowrap; }
+  nav button.active { color: var(--text); border-bottom-color: var(--gold); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .card .label { color: var(--muted); font-size: 13px; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  .bar { height: 6px; background: var(--panel2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .bar > div { height: 100%; background: var(--gold); }
+  h2 { font-size: 16px; margin: 18px 0 10px; }
+  .trade { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+           padding: 14px; margin-bottom: 10px; }
+  .trade .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .side { font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 13px; }
+  .side.BUY { background: #12361c; color: var(--green); } .side.SELL { background: #3d1515; color: var(--red); }
+  .trade .top .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .levels { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  .lvl { font-size: 13px; padding: 3px 8px; border-radius: 6px; background: var(--panel2); font-variant-numeric: tabular-nums; }
+  .lvl.hit { background: #12361c; color: var(--green); }
+  .lvl.sl { background: #3d1515; color: #ffa198; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  .msg { color: var(--muted); font-size: 13px; white-space: pre-wrap; margin-top: 6px; }
+  .empty { color: var(--muted); text-align: center; padding: 30px; }
+  .logs { background: #010409; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px;
+          font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; max-height: 70vh; overflow: auto; }
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .form label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .form .help { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2);
+           border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; display: none; z-index: 9; max-width: 90vw; }
+  #login { max-width: 360px; margin: 12vh auto; }
+  .hidden { display: none !important; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="login" class="card hidden">
+  <h1 style="font-size:20px;margin:0 0 6px">🟡 Bot Or</h1>
+  <p style="color:var(--muted);margin:0 0 16px">Entre le mot de passe du panel (PANEL_PASSWORD dans .env).</p>
+  <form id="loginForm">
+    <input id="pw" type="password" placeholder="Mot de passe" autocomplete="current-password" autofocus>
+    <button class="primary" style="width:100%;margin-top:10px">Se connecter</button>
+    <p id="loginErr" class="neg" style="margin:10px 0 0"></p>
+  </form>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header>
+    <h1><span class="dot"></span>Bot Or</h1>
+    <span id="stState" class="pill">…</span>
+    <span id="stMode" class="pill">…</span>
+    <div class="actions">
+      <button id="btnPause">⏸ Pause</button>
+      <button id="btnCloseAll" class="danger">Tout fermer</button>
+      <button id="btnLogout">Déconnexion</button>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button data-tab="dash" class="active">Tableau de bord</button>
+    <button data-tab="history">Historique</button>
+    <button data-tab="stats">Statistiques</button>
+    <button data-tab="settings">Réglages</button>
+    <button data-tab="logs">Logs</button>
+  </nav>
+
+  <section id="tab-dash">
+    <div class="grid">
+      <div class="card"><div class="label">Solde</div><div class="value" id="kBalance">–</div><div class="sub" id="kFloating"></div></div>
+      <div class="card"><div class="label">P&L du jour</div><div class="value" id="kToday">–</div>
+        <div class="bar"><div id="kLossBar" style="width:0"></div></div><div class="sub" id="kLossTxt"></div></div>
+      <div class="card"><div class="label">Risque ouvert</div><div class="value" id="kRisk">–</div><div class="sub">perte si tous les SL sont touchés</div></div>
+      <div class="card"><div class="label">Trades aujourd'hui</div><div class="value" id="kTrades">–</div><div class="sub" id="kPrice"></div></div>
+    </div>
+    <h2>Trades en cours</h2>
+    <div id="trades"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section id="tab-history" class="hidden">
+    <div class="card scroll"><table>
+      <thead><tr><th>#</th><th>Date</th><th>Signal</th><th>Statut</th><th>Résultat</th><th>Détail</th></tr></thead>
+      <tbody id="histBody"></tbody>
+    </table></div>
+  </section>
+
+  <section id="tab-stats" class="hidden">
+    <div class="grid" id="statGrid"></div>
+    <div class="card"><div class="label">Courbe des gains (trades fermés)</div><div id="equity"></div></div>
+  </section>
+
+  <section id="tab-settings" class="hidden">
+    <div class="card">
+      <form id="settingsForm" class="form"></form>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="primary" id="btnSave">Enregistrer</button>
+        <span style="color:var(--muted);font-size:13px">S'applique tout de suite aux prochains signaux. Le mode dry run et les clés se changent dans config.yaml / .env.</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-logs" class="hidden">
+    <div class="logs" id="logs"></div>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt = (n, d = 2) => (n === null || n === undefined) ? "–" : Number(n).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const money = (n) => (n === null || n === undefined) ? "–" : (n > 0 ? "+" : "") + fmt(n);
+const cls = (n) => n > 0 ? "pos" : n < 0 ? "neg" : "";
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let current = "dash", status = null, timer = null;
+
+function toast(msg, bad) {
+  const t = $("#toast"); t.textContent = msg; t.style.color = bad ? "var(--red)" : "var(--text)";
+  t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3500);
+}
+
+async function api(path, method = "GET", body) {
+  const r = await fetch(path, { method, headers: { "Content-Type": "application/json", "X-Panel": "1" },
+                                body: body ? JSON.stringify(body) : undefined, credentials: "same-origin" });
+  if (r.status === 401 && path !== "/api/login") { showLogin(); throw new Error("non connecté"); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || ("Erreur " + r.status));
+  return data;
+}
+
+function showLogin() { $("#app").classList.add("hidden"); $("#login").classList.remove("hidden"); clearInterval(timer); }
+function showApp() { $("#login").classList.add("hidden"); $("#app").classList.remove("hidden"); refresh(); clearInterval(timer); timer = setInterval(refresh, 3000); }
+
+$("#loginForm").onsubmit = async (e) => {
+  e.preventDefault(); $("#loginErr").textContent = "";
+  try { await api("/api/login", "POST", { password: $("#pw").value }); $("#pw").value = ""; showApp(); }
+  catch (err) { $("#loginErr").textContent = err.message; }
+};
+
+async function action(btn, path, confirmMsg, okMsg) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  btn.disabled = true;
+  try { await api(path, "POST"); toast(okMsg || "C'est fait."); refresh(); }
+  catch (err) { toast(err.message, true); }
+  finally { btn.disabled = false; }
+}
+
+$("#btnPause").onclick = (e) => status && action(e.target, status.paused ? "/api/resume" : "/api/pause", null,
+  status.paused ? "Le bot reprend les signaux." : "Pause : plus de nouveaux trades.");
+$("#btnCloseAll").onclick = (e) => action(e.target, "/api/closeall", "Fermer TOUS les trades du bot maintenant ?", "Tous les trades ont été fermés.");
+$("#btnLogout").onclick = async () => { try { await api("/api/logout", "POST"); } catch {} showLogin(); };
+
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x === b));
+  current = b.dataset.tab;
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("hidden", s.id !== "tab-" + current));
+  refresh(true);
+});
+
+async function refresh(tabChanged) {
+  try {
+    status = await api("/api/status");
+    renderStatus();
+    if (current === "dash") renderTrades(await api("/api/trades"));
+    if (current === "history" && tabChanged) renderHistory(await api("/api/history"));
+    if (current === "stats" && tabChanged) renderStats(await api("/api/stats"));
+    if (current === "settings" && tabChanged) renderSettings(await api("/api/settings"));
+    if (current === "logs") renderLogs(await api("/api/logs"));
+  } catch (err) { if (err.message !== "non connecté") console.warn(err); }
+}
+
+function renderStatus() {
+  const s = status;
+  $("#stState").textContent = s.paused ? "⏸ En pause" : "● Actif";
+  $("#stState").className = "pill " + (s.paused ? "off" : "on");
+  $("#stMode").textContent = s.dry_run ? "DRY RUN (aucun ordre)" : "Compte " + s.account_mode;
+  $("#stMode").className = "pill " + (s.dry_run ? "off" : s.account_mode === "RÉEL" ? "warn" : "");
+  $("#btnPause").textContent = s.paused ? "▶️ Reprendre" : "⏸ Pause";
+  $("#kBalance").textContent = fmt(s.balance);
+  $("#kFloating").innerHTML = `flottant <span class="${cls(s.floating)}">${money(s.floating)}</span>`;
+  $("#kToday").textContent = money(s.realized_today); $("#kToday").className = "value " + cls(s.realized_today);
+  const used = Math.max(0, -s.realized_today) + s.open_risk;
+  const pct = s.daily_loss_limit ? Math.min(100, 100 * used / s.daily_loss_limit) : 0;
+  $("#kLossBar").style.width = pct + "%"; $("#kLossBar").style.background = pct > 75 ? "var(--red)" : "var(--gold)";
+  $("#kLossTxt").textContent = `limite du jour : ${fmt(used)} / ${fmt(s.daily_loss_limit)}`;
+  $("#kRisk").textContent = fmt(s.open_risk);
+  $("#kTrades").textContent = `${s.trades_today} / ${s.max_trades_per_day}`;
+  $("#kPrice").textContent = `${s.symbol} ${fmt(s.bid)} / ${fmt(s.ask)} · ${s.server_time}`;
+}
+
+function renderTrades(list) {
+  const box = $("#trades");
+  if (!list.length) { box.innerHTML = `<div class="empty">Aucun trade en cours. Le bot attend un signal du groupe.</div>`; return; }
+  box.innerHTML = list.map(t => {
+    const vol = t.positions.reduce((a, p) => a + p.volume, 0) + t.orders.reduce((a, o) => a + o.volume, 0);
+    const curSl = t.positions[0]?.sl ?? t.orders[0]?.sl ?? t.sl;
+    const tps = t.tps.map((tp, i) => `<span class="lvl ${i < t.tps_reached ? "hit" : ""}">TP${i + 1} ${fmt(tp)}${i < t.tps_reached ? " ✓" : ""}</span>`).join("");
+    const pending = t.orders.length && !t.positions.length ? `<span class="pill off">ordre limite en attente</span>` : "";
+    const rows = [...t.positions.map(p => `<tr><td>TP${p.leg}</td><td>${fmt(p.volume)}</td><td>${fmt(p.sl)}</td><td>${fmt(p.tp)}</td><td class="${cls(p.profit)}">${money(p.profit)}</td></tr>`),
+                  ...t.orders.map(o => `<tr><td>TP${o.leg}</td><td>${fmt(o.volume)}</td><td>${fmt(o.sl)}</td><td>${fmt(o.tp)}</td><td>limite ${fmt(o.price)}</td></tr>`)].join("");
+    return `<div class="trade">
+      <div class="top"><span class="side ${t.side}">${t.side}</span><b>#${t.id}</b>
+        <span style="color:var(--muted)">${fmt(vol)} lot · entrée ${fmt(t.entry)}</span>${pending}
+        <div class="right"><b class="${cls(t.floating)}" style="font-size:18px">${money(t.floating)}</b>
+          <button onclick="action(this,'/api/trades/${t.id}/be','Passer le SL de #${t.id} au break-even ?','SL au break-even.')">SL au BE</button>
+          <button class="danger" onclick="action(this,'/api/trades/${t.id}/close','Fermer le trade #${t.id} maintenant ?','Trade #${t.id} fermé.')">Fermer</button></div></div>
+      <div class="levels"><span class="lvl sl">SL ${fmt(curSl)}</span>${tps}</div>
+      <div class="scroll"><table><thead><tr><th>Part</th><th>Lot</th><th>SL</th><th>TP</th><th>P&L</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${t.message ? `<details><summary>Message du groupe</summary><div class="msg">${esc(t.message)}</div></details>` : ""}
+    </div>`;
+  }).join("");
+}
+
+const STATUS = { open: ["En cours", "on"], closed: ["Terminé", ""], rejected: ["Non pris", "off"], failed: ["Échec broker", "warn"], dry_run: ["Dry run", "off"] };
+
+function renderHistory(list) {
+  $("#histBody").innerHTML = list.length ? list.map(h => {
+    const [lbl, c] = STATUS[h.status] || [h.status, ""];
+    const v = h.verdict ? `<div class="msg">🧠 ${esc(h.verdict.decision)} — ${esc(h.verdict.summary)}</div>` : "";
+    const m = h.message ? `<details><summary>message</summary><div class="msg">${esc(h.message)}</div></details>` : "";
+    return `<tr><td>${h.id}</td><td>${esc((h.created || "").replace("T", " ").slice(0, 16))}</td>
+      <td><span class="side ${h.side}">${h.side}</span> ${fmt(h.entry_zone[0])}${h.entry_zone[1] !== h.entry_zone[0] ? "-" + fmt(h.entry_zone[1]) : ""}<div class="msg">SL ${fmt(h.sl)} · TP ${h.tps.map(x => fmt(x)).join(" / ")}</div></td>
+      <td><span class="pill ${c}">${lbl}</span>${h.tps_reached ? `<div class="msg">TP${h.tps_reached} atteint</div>` : ""}</td>
+      <td class="${cls(h.pnl)}"><b>${h.pnl === null ? "–" : money(h.pnl)}</b></td>
+      <td>${esc(h.reason || "")}${v}${m}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="empty">Aucun signal pour l'instant.</td></tr>`;
+}
+
+function renderStats(s) {
+  const card = (l, v, sub, c = "") => `<div class="card"><div class="label">${l}</div><div class="value ${c}">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+  $("#statGrid").innerHTML = [
+    card("Gain total", money(s.total), `${s.closed} trades fermés`, cls(s.total)),
+    card("Taux de réussite", s.winrate === null ? "–" : fmt(s.winrate, 1) + " %", `${s.wins} gagnants · ${s.losses} perdants`),
+    card("Facteur de profit", s.profit_factor === null ? "–" : fmt(s.profit_factor), "gains ÷ pertes (> 1 = rentable)"),
+    card("Gain moyen / perte moyenne", `<span class="pos">${money(s.avg_win)}</span> <span style="color:var(--muted)">/</span> <span class="neg">${money(s.avg_loss)}</span>`),
+    card("7 derniers jours", money(s.week), "", cls(s.week)),
+    card("30 derniers jours", money(s.month), "", cls(s.month)),
+    card("Signaux reçus", s.signals_total, `${s.signals_taken} pris · ${s.signals_rejected} non pris`),
+    card("Meilleur / pire trade", `<span class="pos">${money(s.best)}</span> <span style="color:var(--muted)">/</span> <span class="neg">${money(s.worst)}</span>`),
+  ].join("");
+  drawEquity(s.equity);
+}
+
+function drawEquity(points) {
+  const box = $("#equity");
+  if (points.length < 2) { box.innerHTML = `<div class="empty">La courbe apparaîtra après 2 trades fermés.</div>`; return; }
+  const W = 1000, H = 260, P = 34, vals = [0, ...points.map(p => p.v)];
+  const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
+  const x = i => P + (W - 2 * P) * i / (vals.length - 1), y = v => H - P - (H - 2 * P) * (v - min) / span;
+  const line = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const last = vals[vals.length - 1], color = last >= 0 ? "var(--green)" : "var(--red)";
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;margin-top:8px">
+    <line x1="${P}" x2="${W - P}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)" stroke-dasharray="4 4"/>
+    <text x="4" y="${y(max) + 4}">${fmt(max, 0)}</text><text x="4" y="${y(min) + 4}">${fmt(min, 0)}</text>
+    <polygon points="${x(0)},${y(0)} ${line} ${x(vals.length - 1)},${y(0)}" fill="${color}" opacity=".12"/>
+    <polyline points="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+const FIELDS = [
+  ["risk", "risk_per_trade_pct", "Risque par trade (%)", "number", "Part du solde perdue si le SL est touché."],
+  ["risk", "max_daily_loss_pct", "Perte max par jour (%)", "number", "Au-delà, plus aucun nouveau trade jusqu'à demain."],
+  ["risk", "max_open_signals", "Signaux ouverts en même temps", "int", ""],
+  ["risk", "max_trades_per_day", "Trades max par jour", "int", ""],
+  ["risk", "max_spread", "Spread max ($)", "number", "Pas d'entrée si le spread est plus large (news)."],
+  ["risk", "max_entry_drift", "Écart max avec l'entrée du signal ($)", "number", "Au-delà : ordre limite ou signal ignoré."],
+  ["risk", "far_entry_action", "Si le prix est trop loin", "select:limit=Ordre limite au prix du signal,skip=Ignorer le signal", ""],
+  ["risk", "min_sl_distance", "SL minimum ($)", "number", "SL plus serré = refusé."],
+  ["risk", "max_sl_distance", "SL maximum ($)", "number", "SL plus large = refusé."],
+  ["management", "tp_split", "Répartition entre les TP (%)", "split", "Ex. 50, 30, 20 pour TP1, TP2, TP3."],
+  ["management", "breakeven_after_tp", "Passer au BE après le TP n°", "int", ""],
+  ["management", "breakeven_buffer", "Marge au-dessus de l'entrée au BE ($)", "number", "Couvre le spread et la commission."],
+  ["management", "trail_to_previous_tp", "Remonter le SL sur le TP précédent", "select:true=Oui (TP2 → SL sur TP1…),false=Non", ""],
+  ["ai", "analyst_mode", "Rôle de l'IA d'analyse", "select:filter=Peut refuser ou réduire,advisory=Donne son avis seulement,off=Désactivée", ""],
+  ["ai", "on_analyst_error", "Si l'IA est injoignable", "select:approve=Suivre le signal à risque réduit,reject=Ne pas prendre", ""],
+];
+
+function renderSettings(cfg) {
+  $("#settingsForm").innerHTML = FIELDS.map(([sec, key, label, type, help]) => {
+    const val = cfg[sec][key], id = `f_${sec}_${key}`;
+    let input;
+    if (type.startsWith("select:")) {
+      const opts = type.slice(7).split(",").map(o => o.split("="));
+      input = `<select id="${id}">${opts.map(([v, l]) => `<option value="${v}" ${String(val) === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+    } else if (type === "split") {
+      input = `<input id="${id}" value="${val.map(x => Math.round(x * 100)).join(", ")}">`;
+    } else {
+      input = `<input id="${id}" type="number" step="${type === "int" ? 1 : "any"}" value="${val}">`;
+    }
+    return `<div><label for="${id}">${esc(label)}</label>${input}${help ? `<div class="help">${esc(help)}</div>` : ""}</div>`;
+  }).join("");
+}
+
+$("#btnSave").onclick = async (e) => {
+  const body = {};
+  for (const [sec, key, , type] of FIELDS) {
+    const raw = $(`#f_${sec}_${key}`).value;
+    let v;
+    if (type === "int") v = parseInt(raw, 10);
+    else if (type === "number") v = parseFloat(raw);
+    else if (type === "split") { const parts = raw.split(/[,; ]+/).filter(Boolean).map(Number); const tot = parts.reduce((a, b) => a + b, 0); v = parts.map(p => +(p / tot).toFixed(4)); }
+    else if (raw === "true" || raw === "false") v = raw === "true";
+    else v = raw;
+    (body[sec] ||= {})[key] = v;
+  }
+  e.target.disabled = true;
+  try { renderSettings(await api("/api/settings", "POST", body)); toast("Réglages enregistrés."); }
+  catch (err) { toast(err.message, true); }
+  finally { e.target.disabled = false; }
+};
+
+function renderLogs(lines) {
+  const box = $("#logs"), atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  box.textContent = lines.join("\n") || "Aucun log pour l'instant.";
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+api("/api/status").then(showApp).catch(() => showLogin());
+</script>
+</body>
+</html>

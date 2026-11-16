@@ -62,6 +62,25 @@ La librairie Python de MetaTrader 5 ne fonctionne **que sous Windows**. Un VPS W
 2. **`dry_run: false` sur un compte démo**, pendant 2 à 4 semaines : vrais ordres, argent fictif. Compare avec les résultats annoncés par le groupe.
 3. **En réel**, seulement si les résultats en démo sont bons, avec un petit `risk_per_trade_pct` (0,5 %) au début.
 
+## Le site de contrôle
+
+Le bot ouvre un site sur le VPS : **http://127.0.0.1:8080** (mot de passe : `PANEL_PASSWORD` dans `.env`).
+
+- **Tableau de bord** : solde, P&L du jour, jauge de la limite de perte, risque ouvert, trades en cours avec chaque TP, et boutons **SL au BE** / **Fermer** par trade.
+- **Historique** : chaque signal du groupe, ce que le bot en a fait (pris, non pris et pourquoi, avis de l'IA) et le résultat.
+- **Statistiques** : gain total, taux de réussite, facteur de profit, gains sur 7 et 30 jours, courbe des gains. C'est ce qui te dira si le groupe est vraiment rentable.
+- **Réglages** : risque, limites, répartition des TP, BE, rôle de l'IA. Ils s'appliquent tout de suite, sans redémarrer.
+- **Logs** en direct, et boutons **Pause** / **Tout fermer** en haut.
+
+Pour le découvrir **sans MT5 ni Telegram**, avec de fausses données : double-clique sur `voir-demo-site.bat` (ou `python -m bot.demo`), mot de passe `demo1234`.
+
+**Y accéder depuis ton téléphone (recommandé : Tailscale, gratuit)**
+1. Installe Tailscale sur le VPS et sur ton téléphone (tailscale.com), connecte-toi avec le même compte.
+2. Dans `config.yaml`, mets `panel.host` à l'adresse Tailscale du VPS (elle commence par `100.`, visible dans l'app Tailscale).
+3. Sur ton téléphone : `http://100.x.x.x:8080`. Le site n'est visible que par tes appareils, pas par Internet.
+
+Avec `host: 0.0.0.0`, le site est ouvert sur Internet (il faut aussi ouvrir le port 8080 dans le pare-feu Windows). Le mot de passe le protège, mais la connexion n'est pas chiffrée : préfère Tailscale.
+
 ## Commandes Telegram (dans tes « Messages enregistrés »)
 
 | Commande | Effet |
@@ -112,4 +131,7 @@ bot/indicators.py  EMA, RSI, ATR, structure, points hauts/bas
 bot/broker.py      MetaTrader 5 + broker simulé
 bot/store.py       mémoire SQLite (messages, trades, événements)
 bot/list_chats.py  liste tes groupes Telegram et leur ID
+bot/panel.py       le site de contrôle (API + mot de passe)
+bot/web/index.html la page du site
+bot/demo.py        démo du site avec un broker simulé
 ```

@@ -4,3 +4,5 @@ MetaTrader5>=5.0.45 ; sys_platform == "win32"
 pydantic>=2.6
 PyYAML>=6.0
 python-dotenv>=1.0
+fastapi>=0.110
+uvicorn>=0.29

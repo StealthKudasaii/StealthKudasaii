@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Awaitable, Callable, Optional
 
 from .broker import TIMEFRAMES, Broker, round_volume
@@ -170,7 +170,7 @@ class Engine:
         server_time = await self.call(self.broker.server_time)
 
         if self.paused:
-            self.store.add_signal(signal, "rejected", server_time)
+            self.store.add_signal(signal, "rejected", server_time, reason="bot en pause")
             await self.notify(f"⏸ Bot en pause, signal non pris.\n{head}")
             return
 
@@ -185,7 +185,8 @@ class Engine:
 
         if mult <= 0:
             self.store.add_signal(signal, "rejected", server_time,
-                                  verdict=verdict.model_dump(mode="json") if verdict else None)
+                                  verdict=verdict.model_dump(mode="json") if verdict else None,
+                                  reason=note or "refusé par l'analyse IA")
             await self.notify(f"⛔ Signal refusé par l'analyse.\n{head}{verdict_txt}")
             return
 
@@ -195,7 +196,7 @@ class Engine:
             plan = plan_trade(signal, state, spec, self.broker.loss_per_lot, self.cfg.risk, self.cfg.management, mult)
         except Rejected as e:
             self.store.add_signal(signal, "rejected", server_time,
-                                  verdict=verdict.model_dump(mode="json") if verdict else None)
+                                  verdict=verdict.model_dump(mode="json") if verdict else None, reason=str(e))
             await self.notify(f"⛔ Signal non pris : {e}\n{head}{verdict_txt}")
             return
 
@@ -217,7 +218,7 @@ class Engine:
 
         ok = [r for r in results if r.ok]
         if not ok:
-            self.store.update_signal(sid, status="failed")
+            self.store.update_signal(sid, status="failed", reason=results[0].message)
             await self.notify(f"❌ Ordres REFUSÉS par le broker : {results[0].message}\n{head}")
             return
         legs_txt = "\n".join(f"  • {l.volume} lot → TP{n} {l.tp}" for n, l in enumerate(plan.legs, 1))
@@ -259,13 +260,7 @@ class Engine:
         sid = row["id"]
         side = row_side(row)
         if p.action == Action.MOVE_SL_BE:
-            positions, _ = await self.call(self.legs, sid)
-            if not positions:
-                await self.notify(f"ℹ️ BE demandé sur #{sid} mais pas de position ouverte.")
-                return
-            sign = 1 if side == Side.BUY else -1
-            be = round(positions[0][1].open_price + sign * self.cfg.management.breakeven_buffer, 2)
-            await self.set_sl(row, be, reason="consigne du groupe : BE")
+            await self.move_be(row, reason="consigne du groupe : BE")
         elif p.action == Action.MODIFY_SL and p.stop_loss:
             await self.set_sl(row, p.stop_loss, reason="consigne du groupe")
         elif p.action == Action.MODIFY_TP and p.take_profits:
@@ -280,18 +275,18 @@ class Engine:
                 await self.call(self.broker.cancel_order, o.ticket)
             positions, _ = await self.call(self.legs, sid)
             if not positions:
-                self.store.update_signal(sid, status="closed")
+                await self.call(self.finalize, row, "annulé par le groupe")
             await self.notify(f"🗑 #{sid} : {len(orders)} ordre(s) en attente annulé(s)"
                               + (" — des positions déjà ouvertes restent gérées." if positions else "."))
 
-    async def set_sl(self, row, sl: float, reason: str) -> None:
+    async def set_sl(self, row, sl: float, reason: str) -> bool:
         sid, side = row["id"], row_side(row)
         bid, ask = await self.call(self.broker.tick)
         sign = 1 if side == Side.BUY else -1
         price = bid if side == Side.BUY else ask
         if (price - sl) * sign <= 0:
             await self.notify(f"⚠️ #{sid} : SL {sl} impossible (le prix {price} est déjà au-delà). Rien changé.")
-            return
+            return False
         positions, orders = await self.call(self.legs, sid)
         for _, p in positions:
             await self.call(self.broker.modify_position, p.ticket, sl, p.tp)
@@ -299,6 +294,7 @@ class Engine:
             await self.call(self.broker.modify_order, o.ticket, o.price, sl, o.tp)
         self.store.update_signal(sid, sl=sl)
         await self.notify(f"🛡 #{sid} : SL déplacé à {sl} ({reason}).")
+        return True
 
     async def set_tps(self, row, tps: list[float]) -> None:
         sid = row["id"]
@@ -312,17 +308,39 @@ class Engine:
         self.store.update_signal(sid, tps=tps)
         await self.notify(f"🎯 #{sid} : TP mis à jour {tps}.")
 
+    def finalize(self, row, reason: str = "") -> float:
+        """Marque un signal terminé et enregistre son P&L réalisé (lu dans l'historique du broker)."""
+        sid = row["id"]
+        since = datetime.fromisoformat(row["server_time"]) - timedelta(days=1)
+        try:
+            pnl = round(self.broker.signal_pnl(f"GB{sid}T", since), 2)
+        except Exception:
+            log.exception("P&L du signal #%s illisible", sid)
+            pnl = None
+        fields = dict(status="closed", closed_at=self.broker.server_time().isoformat(timespec="seconds"), pnl=pnl)
+        if reason:
+            fields["reason"] = reason
+        self.store.update_signal(sid, **fields)
+        return pnl or 0.0
+
+    async def move_be(self, row, reason: str) -> bool:
+        positions, _ = await self.call(self.legs, row["id"])
+        if not positions:
+            await self.notify(f"ℹ️ BE demandé sur #{row['id']} mais pas de position ouverte.")
+            return False
+        sign = 1 if row_side(row) == Side.BUY else -1
+        be = round(positions[0][1].open_price + sign * self.cfg.management.breakeven_buffer, 2)
+        return await self.set_sl(row, be, reason=reason)
+
     async def close_signal(self, row, reason: str) -> None:
         sid = row["id"]
         positions, orders = await self.call(self.legs, sid)
         for _, o in orders:
             await self.call(self.broker.cancel_order, o.ticket)
-        pnl = 0.0
         for _, p in positions:
-            pnl += p.profit
             await self.call(self.broker.close_position, p.ticket)
-        self.store.update_signal(sid, status="closed")
-        await self.notify(f"🚪 #{sid} fermé ({reason}). P&L flottant au moment de la fermeture ≈ {pnl:.2f}")
+        pnl = await self.call(self.finalize, row, reason)
+        await self.notify(f"🚪 #{sid} fermé ({reason}). Résultat : {pnl:+.2f}")
 
     async def close_partial(self, row, fraction: float) -> None:
         sid = row["id"]
@@ -366,11 +384,12 @@ class Engine:
                                key=lambda x: x[0])
             orders = [(i, o) for o in orders_all if (i := leg_index(o.comment, sid))]
             if not positions and not orders:
-                self.store.update_signal(sid, status="closed")
                 if row["tps_reached"] > 0:
-                    out.append(f"🏁 Trade #{sid} terminé (TP{row['tps_reached']} atteint).")
+                    why = f"TP{row['tps_reached']} atteint"
                 else:
-                    out.append(f"🏁 Trade #{sid} terminé (SL touché, fermé, ou ordre limite expiré).")
+                    why = "SL touché, fermé à la main, ou ordre limite expiré"
+                pnl = self.finalize(row, why)
+                out.append(f"🏁 Trade #{sid} terminé ({why}). Résultat : {pnl:+.2f}")
                 continue
             if not positions:
                 continue  # ordres limites pas encore déclenchés

@@ -30,6 +30,9 @@ def setup_logging() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("logs/bot.log", encoding="utf-8")],
     )
+    from .panel import LOG_BUFFER
+
+    logging.getLogger().addHandler(LOG_BUFFER)
     logging.getLogger("telethon").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -95,11 +98,17 @@ async def run(config_path: str) -> None:
     await notify(f"🤖 Bot or démarré ({'DRY RUN, aucun ordre envoyé' if cfg.dry_run else 'ORDRES ACTIFS'}, "
                  f"compte {broker.account_mode}).\n" + await engine.status_text())
     log.info("En écoute sur %s", sources)
-    manager = asyncio.create_task(engine.manage_loop())
+    tasks = [asyncio.create_task(engine.manage_loop())]
+    if cfg.panel.enabled:
+        from .panel import create_app, serve
+
+        app = create_app(engine, env("PANEL_PASSWORD"))
+        tasks.append(asyncio.create_task(serve(app, cfg.panel.host, cfg.panel.port)))
     try:
         await client.run_until_disconnected()
     finally:
-        manager.cancel()
+        for t in tasks:
+            t.cancel()
 
 
 def main() -> None:

@@ -61,8 +61,17 @@ class ManagementCfg(BaseModel):
     check_interval_seconds: float = 2.0
 
 
+class PanelCfg(BaseModel):
+    enabled: bool = True
+    # 127.0.0.1 = accessible seulement depuis le VPS (ou via Tailscale, voir README).
+    # 0.0.0.0   = accessible depuis Internet (mot de passe obligatoire, à éviter si possible).
+    host: str = "127.0.0.1"
+    port: int = 8080
+
+
 class Config(BaseModel):
     dry_run: bool = True
+    panel: PanelCfg = Field(default_factory=PanelCfg)
     telegram: TelegramCfg
     mt5: MT5Cfg = Field(default_factory=MT5Cfg)
     ai: AICfg = Field(default_factory=AICfg)
@@ -70,7 +79,20 @@ class Config(BaseModel):
     management: ManagementCfg = Field(default_factory=ManagementCfg)
 
 
-def load_config(path: str | Path = "config.yaml") -> Config:
+OVERRIDES_PATH = Path("data/panel_settings.yaml")
+
+
+def _merge(base: dict, extra: dict) -> dict:
+    for k, v in extra.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+def load_config(path: str | Path = "config.yaml", overrides: Path = OVERRIDES_PATH) -> Config:
+    """config.yaml, puis les réglages modifiés depuis le site (data/panel_settings.yaml) par-dessus."""
     try:
         from dotenv import load_dotenv
 
@@ -78,7 +100,11 @@ def load_config(path: str | Path = "config.yaml") -> Config:
     except ImportError:
         pass
     with open(path, encoding="utf-8") as f:
-        return Config.model_validate(yaml.safe_load(f))
+        data = yaml.safe_load(f) or {}
+    if overrides.exists():
+        with open(overrides, encoding="utf-8") as f:
+            _merge(data, yaml.safe_load(f) or {})
+    return Config.model_validate(data)
 
 
 def env(name: str, required: bool = True) -> str:
