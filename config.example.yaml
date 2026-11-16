@@ -22,6 +22,13 @@ telegram:
   allowed_senders: []
   # Où le bot t'envoie ses notifications ("me" = tes Messages enregistrés).
   notify_chat: me
+  # Optionnel : ne prendre que les signaux TRANSFÉRÉS depuis ces canaux (bout du nom). Vide = tous.
+  forwarded_from: []             # ex. ["SCALPING"]
+  # Avec forwarded_from : prendre aussi les signaux écrits directement dans le groupe...
+  main_signals: false
+  # ... seulement si leur SL est à X $ max de l'entrée (0 = pas de limite)
+  main_max_sl: 0
+  commands_from_everyone: true   # suivre les consignes (BE, close...) de tout le groupe
 
 mt5:
   # Le nom exact de l'or chez TON broker : XAUUSD, XAUUSD.m, GOLD, XAUUSD+ ...
@@ -45,12 +52,16 @@ ai:
 
 risk:
   risk_per_trade_pct: 1.0        # % du solde risqué si le SL est touché (toutes parts confondues)
-  max_daily_loss_pct: 3.0        # perte du jour (réalisée + risque ouvert) au-delà de laquelle on stoppe
+  # Lot total FIXE par signal, réparti entre les TP (0.03 = 0.01 par TP sur 3 TP). 0 = taille calculée avec risk_per_trade_pct.
+  # L'IA peut refuser un trade mais ne change pas ce lot.
+  fixed_lot: 0
+  max_daily_loss_pct: 3.0        # perte du jour (réalisée + risque ouvert) au-delà de laquelle on stoppe (0 = pas de limite)
   max_open_signals: 2            # nombre de signaux ouverts en même temps
   max_trades_per_day: 6
   max_spread: 0.60               # spread max en $ (0.60 = 60 cents sur l'or)
   min_sl_distance: 1.5           # SL trop serré = refus (en $)
   max_sl_distance: 25.0          # SL trop large = refus (en $)
+  max_tp1_r: 6.0                 # TP1 à plus de 6x la distance du SL = faute de frappe probable -> refus (0 = off)
   max_entry_drift: 2.0           # si le prix s'est éloigné de plus de X $ de l'entrée du signal...
   far_entry_action: limit        # ... "limit" = ordre limite au prix du signal, "skip" = on laisse tomber
   limit_expiry_minutes: 120
@@ -70,4 +81,6 @@ management:
   trail_to_previous_tp: true
   # Si le signal n'a pas de TP : TP calculés en multiples du risque (R).
   default_tp_r: [1.0, 2.0, 3.0]
+  # 1 = toute la position se ferme au TP1 ; 0 = tous les TP du signal
+  max_tps: 0
   check_interval_seconds: 2

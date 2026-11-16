@@ -81,6 +81,19 @@ Pour le découvrir **sans MT5 ni Telegram**, avec de fausses données : double-c
 
 Avec `host: 0.0.0.0`, le site est ouvert sur Internet (il faut aussi ouvrir le port 8080 dans le pare-feu Windows). Le mot de passe le protège, mais la connexion n'est pas chiffrée : préfère Tailscale.
 
+## Backtest : rejouer les derniers jours du groupe
+
+Avant de risquer quoi que ce soit, regarde ce que le bot *aurait* fait sur les jours passés. Ferme le bot et laisse MT5 ouvert :
+
+```
+python -m bot.backtest --days 5                # avec l'analyse IA (≈ 0,08 $ par signal)
+python -m bot.backtest --days 5 --no-analyst   # sans le filtre IA, quasi gratuit
+```
+
+Le script télécharge les messages du groupe et les bougies de l'or chez ton broker. Il rejoue ensuite chaque message à son heure : l'IA ne voit que le graphique tel qu'il était à ce moment-là. Le prix avance minute par minute (TP, SL, BE, trailing, consignes du groupe). Le rapport est écrit dans `data/backtest/` : résumé, liste des trades, raisons des refus et journal complet.
+
+Les réponses de l'IA sont mises en cache. Si tu relances après avoir changé `config.yaml` (risque, `tp_split`, BE…), seuls les nouveaux appels sont payés. `--refresh` re-télécharge les données. `--balance 10000` règle le solde simulé (en $).
+
 ## Commandes Telegram (dans tes « Messages enregistrés »)
 
 | Commande | Effet |

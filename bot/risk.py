@@ -58,7 +58,7 @@ def normalize_tps(signal: Signal, entry: float, mgmt: ManagementCfg) -> list[flo
     else:
         tps = sorted((tp for tp in signal.take_profits if tp < entry), reverse=True)
     if tps:
-        return tps
+        return tps[:mgmt.max_tps] if mgmt.max_tps > 0 else tps
     r = abs(entry - signal.stop_loss)
     sign = 1 if signal.side == Side.BUY else -1
     return [round(entry + sign * r * m, 2) for m in mgmt.default_tp_r]
@@ -83,16 +83,16 @@ def split_volume(total: float, n_tps: int, weights: list[float], spec: SymbolSpe
         w.append(w[-1] if w else 1.0)
     s = sum(w)
     w = [x / s for x in w]
-    parts = [round_volume(total * x, spec) for x in w]
-    # Les parts trop petites sont fusionnées dans la précédente (on garde les TP les plus proches).
-    while len(parts) > 1 and min(parts) < spec.volume_min:
-        last = parts.pop()
-        parts[-1] = round(parts[-1] + last, 8)
-    # Le reste de l'arrondi va sur le TP1 (le plus probable).
-    leftover = round_volume(total - sum(parts), spec)
-    if leftover > 0:
-        parts[0] = round(parts[0] + leftover, 8)
-    return parts
+    # On travaille en "pas" de lot (0.01) pour éviter les erreurs d'arrondi.
+    units = int(round(round_volume(total, spec) / spec.volume_step))
+    min_units = max(1, int(round(spec.volume_min / spec.volume_step)))
+    k = max(1, min(n_tps, units // min_units))  # pas assez de volume : on garde les TP les plus proches
+    w = [x / sum(w[:k]) for x in w[:k]]
+    parts = [min_units] * k
+    for _ in range(units - min_units * k):  # le reste va, pas à pas, à la part la plus en retard sur son poids
+        i = max(range(k), key=lambda j: (w[j] * units - parts[j], -j))
+        parts[i] += 1
+    return [round(p * spec.volume_step, 8) for p in parts]
 
 
 def plan_trade(
@@ -139,6 +139,12 @@ def plan_trade(
         raise Rejected(f"le prix ({market}) a déjà dépassé le SL")
     drift = (market - signal.entry_ref) * sign  # > 0 = prix moins bon que le signal
     raw_tps = normalize_tps(signal, signal.entry_ref, mgmt)
+    ref_risk = abs(signal.entry_ref - sl)
+    if signal.take_profits and risk.max_tp1_r > 0 and ref_risk > 0:
+        tp1_r = abs(raw_tps[0] - signal.entry_ref) / ref_risk
+        if tp1_r > risk.max_tp1_r:
+            raise Rejected(f"TP1 suspect ({raw_tps[0]}, soit {tp1_r:.1f}R pour un SL à {ref_risk:.2f} $) : "
+                           f"faute de frappe probable, signal non pris")
     if (market - raw_tps[0]) * sign >= 0:
         raise Rejected(f"trop tard : le prix ({market}) a déjà atteint le TP1 ({raw_tps[0]})")
 
@@ -163,29 +169,42 @@ def plan_trade(
 
     # 7. Combien risquer
     risk_multiplier = max(0.0, min(1.0, risk_multiplier))
-    normal_risk = state.balance * risk.risk_per_trade_pct / 100
-    wanted = normal_risk * risk_multiplier
     daily_limit = state.balance * risk.max_daily_loss_pct / 100
     used = max(0.0, -state.realized_today) + state.open_risk_money
     remaining = daily_limit - used
-    if remaining < 0.25 * normal_risk:
-        raise Rejected(f"limite de perte du jour atteinte ({used:.2f} / {daily_limit:.2f})")
-    risk_money = min(wanted, remaining)
-    if risk_money < wanted:
-        notes.append(f"taille réduite pour rester sous la limite du jour ({remaining:.2f} restants)")
-    if risk_money <= 0:
-        raise Rejected("risque nul (multiplicateur 0)")
-
-    # 8. Taille de position
     per_lot = loss_per_lot(side, entry, sl)
     if per_lot <= 0:
         raise Rejected("calcul de la perte par lot impossible")
-    total = round_volume(risk_money / per_lot, spec)
-    if total < spec.volume_min:
-        raise Rejected(
-            f"compte trop petit : le lot minimum ({spec.volume_min}) risquerait "
-            f"{spec.volume_min * per_lot:.2f} au lieu de {risk_money:.2f}"
-        )
+
+    if risk.fixed_lot > 0:
+        # 8a. Lot fixe choisi par l'utilisateur : même taille à chaque trade, l'IA peut seulement refuser.
+        if risk_multiplier <= 0:
+            raise Rejected("risque nul (multiplicateur 0)")
+        if daily_limit > 0 and remaining <= 0:
+            raise Rejected(f"limite de perte du jour atteinte ({used:.2f} / {daily_limit:.2f})")
+        total = max(spec.volume_min, round_volume(risk.fixed_lot, spec))
+        trade_risk = total * per_lot
+        notes.append(f"lot fixe {total} : {trade_risk:.2f} perdus si SL touché "
+                     f"({100 * trade_risk / state.balance:.1f} % du solde)")
+    else:
+        # 8b. Taille calculée pour risquer risk_per_trade_pct du solde
+        normal_risk = state.balance * risk.risk_per_trade_pct / 100
+        wanted = normal_risk * risk_multiplier
+        if daily_limit <= 0:  # max_daily_loss_pct = 0 : pas de limite du jour
+            remaining = wanted
+        elif remaining < 0.25 * normal_risk:
+            raise Rejected(f"limite de perte du jour atteinte ({used:.2f} / {daily_limit:.2f})")
+        risk_money = min(wanted, remaining)
+        if risk_money < wanted:
+            notes.append(f"taille réduite pour rester sous la limite du jour ({remaining:.2f} restants)")
+        if risk_money <= 0:
+            raise Rejected("risque nul (multiplicateur 0)")
+        total = round_volume(risk_money / per_lot, spec)
+        if total < spec.volume_min:
+            raise Rejected(
+                f"compte trop petit : le lot minimum ({spec.volume_min}) risquerait "
+                f"{spec.volume_min * per_lot:.2f} au lieu de {risk_money:.2f}"
+            )
 
     parts = split_volume(total, len(tps), mgmt.tp_split, spec)
     legs = [Leg(v, tp) for v, tp in zip(parts, tps)]

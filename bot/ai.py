@@ -24,13 +24,21 @@ Actions possibles :
 - NEW_SIGNAL : un nouveau trade (BUY/SELL, entrée ou zone, SL, TP). "Buy now" / "sell now" = entry_is_market true.
 - MOVE_SL_BE : "SL to BE", "break even", "sécurisez", "SL à l'entrée".
 - MODIFY_SL : nouveau prix de SL précis.
-- MODIFY_TP : nouveaux TP.
-- CLOSE_ALL : "close", "fermez tout", "exit now", "close all".
-- CLOSE_PARTIAL : "prenez des gains", "close half", "close 50%" (close_fraction = 0.5 par défaut).
+- MODIFY_TP : nouveaux TP. Remplis `tp_changes` avec le NUMÉRO de chaque TP modifié
+  ("Modifiez le TP2 à 4085" -> [{index: 2, price: 4085}] ; "LE TP C'EST 3900" sans numéro -> index 1).
+  N'utilise `take_profits` que si le message redonne la liste complète des TP.
+- CLOSE_ALL : "close", "fermez tout", "exit now", "close all", "close fully now".
+- CLOSE_PARTIAL : "prenez des gains", "close half", "coupez la moitié" (close_fraction = 0.5 par défaut).
 - CANCEL : "cancel", "annulez", signal pas déclenché à oublier.
+- SKIP_NEXT : "ne prenez pas le prochain trade" (skip_count = nombre de signaux à sauter, 1 par défaut).
 - IGNORE : résultats ("TP1 hit +50 pips"), bavardage, analyses sans ordre, pubs, autres actifs.
 
 Règles :
+- Plusieurs consignes dans le même message ("coupez la moitié et mettez BE") : la première dans `action`,
+  les suivantes dans `extra_actions`, dans l'ordre (ici CLOSE_PARTIAL puis [MOVE_SL_BE]).
+- "+40 pips en cours" seul, sans consigne = IGNORE. "+40 pips en cours sécurisez" = MOVE_SL_BE.
+- Un TP incohérent avec le reste du signal (ex. BUY à 3896, SL 3888, TP1 3990 : probablement 3900)
+  est sûrement une faute de frappe : recopie le chiffre tel quel mais baisse `confidence` sous 0.7.
 - "TP1 hit" ou "TP2 done" seul = IGNORE (le bot gère déjà ses TP), sauf s'il y a une consigne en plus.
 - Une zone "2345-2350" : entry_low=2345, entry_high=2350. Un prix unique : les deux identiques.
 - Si l'entrée est "now"/"maintenant" sans prix, laisse entry_low/high à null et entry_is_market=true.
