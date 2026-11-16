@@ -94,6 +94,59 @@ Le script télécharge les messages du groupe et les bougies de l'or chez ton br
 
 Les réponses de l'IA sont mises en cache. Si tu relances après avoir changé `config.yaml` (risque, `tp_split`, BE…), seuls les nouveaux appels sont payés. `--refresh` re-télécharge les données. `--balance 10000` règle le solde simulé (en $).
 
+## Le bot Discord : tout voir et tout piloter
+
+Le bot Discord tourne **dans le même programme** que le bot de trading : tu le lances avec `demarrer.bat`, comme d'habitude.
+
+### Mise en place (10 minutes, une seule fois)
+1. Va sur **https://discord.com/developers/applications** > **New Application**, donne-lui un nom (par ex. « Bot Or »).
+2. Onglet **Bot** > **Reset Token** > copie le token et colle-le dans `.env` : `DISCORD_TOKEN=...`. **Ne le partage jamais.**
+3. Lance le bot (`demarrer.bat`). Au démarrage, le lien d'invitation est écrit dans `data/discord_invite.txt` (et dans les logs). Ouvre ce lien et choisis ton serveur.
+4. Sur ton serveur Discord, tape **`/setup`**. Une seule commande crée tout :
+   - une catégorie **privée** « 🟡 BOT OR » (invisible pour les autres membres) ;
+   - le rôle **Trader Or**, qui t'est donné : seuls ce rôle et les admins peuvent piloter le bot ;
+   - 9 salons, le tableau de bord et le panneau de réglages épinglés.
+
+### Les salons
+| Salon | Contenu |
+|---|---|
+| 📊 tableau-de-bord | État en direct (solde, P&L du jour, jauge de perte, risque, trades) + boutons **Pause / Sauter le prochain / Tout fermer / Stats** |
+| ✋ validations | Le bot te demande ton avis : **Prendre / Moitié / Refuser**, avec l'analyse de l'IA et la taille prévue |
+| 💹 trades-en-cours | Une carte par trade, mise à jour en direct (TP atteints, SL protégé, P&L) + boutons **SL au BE / Fermer 50 % / Modifier SL-TP / Fermer** |
+| 📡 signaux | Tous les messages du groupe Telegram, ce que le bot a compris, les trades ouverts, et les signaux refusés avec un bouton **Prendre quand même** |
+| 📜 historique | Le résultat de chaque trade terminé |
+| 📈 stats | Récap quotidien automatique + courbe des gains |
+| ⚙️ réglages | Menus pour changer le mode de validation, le rôle de l'IA, le risque, etc. Effet immédiat |
+| 🚨 alertes | Ordres refusés par le broker, problèmes : tu es mentionné |
+| 🧾 journal | Toutes les notifications du bot, dans l'ordre |
+
+### Ton avis sur les trades (salon ✋ validations)
+Réglable avec `/validation` ou dans ⚙️ réglages :
+- **Quand l'IA doute** (par défaut) : si l'IA dit REDUCE ou REJECT, ou si elle ne répond pas, le bot te demande avant de décider.
+- **À chaque signal** : rien n'est pris sans ton accord (ou la règle « sans réponse »).
+- **Jamais** : 100 % automatique.
+
+Tu as 2 minutes par défaut pour répondre. Sans réponse, le bot applique la règle `approval_on_timeout` : décision de l'IA, prendre, ou ne pas prendre. Pendant ce temps, les trades déjà ouverts continuent d'être gérés (BE, TP).
+Les règles de risque (perte max du jour, spread, SL...) s'appliquent **toujours**, même quand tu dis « Prendre ».
+
+### Les commandes
+| Commande | Effet |
+|---|---|
+| `/setup` | crée/répare les salons, le rôle et les panneaux (admin) |
+| `/statut` | état du bot avec les boutons |
+| `/pause` · `/reprendre` | arrêter / reprendre les nouveaux trades |
+| `/sauter [nombre]` | ne pas prendre le(s) prochain(s) signal(aux) |
+| `/fermer-tout` | fermer tous les trades (avec confirmation) |
+| `/trades` | les trades en cours avec leurs boutons |
+| `/fermer trade [pourcentage]` · `/be trade` · `/sl trade prix` · `/tp trade numero prix` | gérer un trade (le numéro se choisit dans une liste) |
+| `/risque pourcentage` · `/lot-fixe lot` · `/validation` · `/ia` · `/regler` | réglages |
+| `/stats [période]` · `/historique [nombre]` | résultats, avec la courbe des gains |
+| `/marche` | indicateurs de l'or sur M5/M15/H1/H4 (gratuit) |
+| `/analyse` | lecture du marché par Claude : biais, niveaux, scénario (≈ 0,05 $) |
+| `/aide` | mode d'emploi |
+
+Pour ne recevoir les notifications que sur Discord, mets `telegram_notifications: false` dans la section `discord` de `config.yaml`.
+
 ## Commandes Telegram (dans tes « Messages enregistrés »)
 
 | Commande | Effet |
@@ -147,4 +200,6 @@ bot/list_chats.py  liste tes groupes Telegram et leur ID
 bot/panel.py       le site de contrôle (API + mot de passe)
 bot/web/index.html la page du site
 bot/demo.py        démo du site avec un broker simulé
+bot/views.py       données partagées par le site et Discord (statut, trades, stats)
+bot/discord_bot/   le bot Discord (client.py : commandes et boutons, embeds.py : les cartes, charts.py : la courbe)
 ```

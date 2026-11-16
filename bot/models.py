@@ -72,6 +72,25 @@ class Decision(str, Enum):
     REJECT = "REJECT"
 
 
+class Bias(str, Enum):
+    BULLISH = "BULLISH"
+    BEARISH = "BEARISH"
+    NEUTRAL = "NEUTRAL"
+
+
+class MarketView(BaseModel):
+    """Lecture du marché de l'or à la demande (commande /analyse sur Discord)."""
+
+    bias: Bias
+    confidence: float = Field(description="0 à 1.")
+    summary: str = Field(description="3-4 phrases en français : contexte, tendance, ce qui compte maintenant.")
+    timeframes: list[str] = Field(default_factory=list, description="Une ligne par timeframe (H4, H1, M15, M5).")
+    supports: list[float] = Field(default_factory=list, description="Supports clés, du plus proche au plus loin.")
+    resistances: list[float] = Field(default_factory=list, description="Résistances clés, du plus proche au plus loin.")
+    scenario: str = Field("", description="Le scénario le plus probable pour les prochaines heures, avec niveaux.")
+    risks: list[str] = Field(default_factory=list, description="Ce qui invaliderait le scénario.")
+
+
 class AnalystVerdict(BaseModel):
     """Sortie structurée de l'IA qui analyse le graphique."""
 

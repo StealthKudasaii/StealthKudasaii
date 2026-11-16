@@ -9,7 +9,7 @@ import anthropic
 from pydantic import BaseModel
 
 from .indicators import compact_candles, summarize_timeframe
-from .models import AnalystVerdict, Bar, ParsedMessage, Signal
+from .models import AnalystVerdict, Bar, MarketView, ParsedMessage, Signal
 
 log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -69,6 +69,13 @@ Décision :
 Réponds en français, de façon concise et concrète (cite les niveaux)."""
 
 
+MARKET_SYSTEM = """Tu es un trader professionnel spécialisé sur l'or (XAUUSD).
+On te donne le prix actuel et, pour M5/M15/H1/H4, des indicateurs calculés (EMA, RSI, ATR, structure,
+points hauts/bas) plus les dernières bougies M15 en [open, high, low, close].
+Fais une lecture claire et honnête du marché : biais, niveaux clés, scénario probable, ce qui l'invaliderait.
+Pas de certitude inventée : si c'est un range sans direction, dis NEUTRAL. Réponds en français, cite les niveaux."""
+
+
 class AI:
     def __init__(self, parser_model: str, analyst_model: str, analyst_effort: str):
         self.client = anthropic.AsyncAnthropic(max_retries=3, timeout=90)
@@ -125,4 +132,14 @@ class AI:
         }
         user = "Données du marché au moment du signal :\n" + json.dumps(payload, ensure_ascii=False)
         return await self._ask(self.analyst_model, ANALYST_SYSTEM, user, AnalystVerdict,
+                               effort=self.analyst_effort, max_tokens=16000)
+
+    async def market_view(self, bid: float, ask: float, bars: dict[str, list[Bar]]) -> Optional[MarketView]:
+        payload = {
+            "price_now": {"bid": bid, "ask": ask},
+            "timeframes": [summarize_timeframe(tf, b) for tf, b in bars.items()],
+            "last_m15_candles_ohlc": compact_candles(bars.get("M15", []), 40),
+        }
+        user = "Données du marché maintenant :\n" + json.dumps(payload, ensure_ascii=False)
+        return await self._ask(self.analyst_model, MARKET_SYSTEM, user, MarketView,
                                effort=self.analyst_effort, max_tokens=16000)

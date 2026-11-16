@@ -13,6 +13,19 @@ panel:
   host: 127.0.0.1
   port: 8080
 
+# Bot Discord : actif si DISCORD_TOKEN est rempli dans .env. Tape /setup sur ton serveur la première fois.
+discord:
+  enabled: true
+  # Quand te demander ton avis (boutons Prendre / Moitié / Refuser dans #validations) :
+  #   off = jamais, doubts = quand l'IA doute (REDUCE/REJECT ou IA injoignable), always = à chaque signal
+  approval_mode: doubts
+  approval_timeout_seconds: 120
+  approval_on_timeout: auto     # sans réponse : auto = décision de l'IA, take = on prend, skip = on ne prend pas
+  mirror_all_messages: true     # recopier tous les messages du groupe dans #signaux
+  telegram_notifications: true  # garder aussi les notifs Telegram (false = seulement Discord)
+  daily_recap_time: "23:30"     # récap quotidien dans #stats (heure du serveur MT5), "" = désactivé
+  role_name: Trader Or          # seuls ce rôle et les admins peuvent piloter le bot
+
 telegram:
   # Le groupe à suivre : @nom_public, lien t.me/..., ou ID numérique (-100...).
   # Lance `python -m bot.list_chats` pour trouver l'ID de ton groupe.

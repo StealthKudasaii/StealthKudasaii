@@ -7,6 +7,8 @@ Commandes que tu peux envoyer dans tes « Messages enregistrés » Telegram :
   /pause     ne prend plus de nouveaux signaux (les trades ouverts restent gérés)
   /resume    reprend
   /closeall  ferme tous les trades du bot
+
+Avec DISCORD_TOKEN dans .env, le bot Discord démarre aussi (voir README : tape /setup sur ton serveur).
 """
 from __future__ import annotations
 
@@ -58,10 +60,21 @@ async def run(config_path: str) -> None:
     await client.start()  # 1er lancement : demande ton numéro et le code reçu sur Telegram
     me = await client.get_me()
 
+    holder: dict = {"discord": None}
+
     async def notify(text: str) -> None:
-        await client.send_message(cfg.telegram.notify_chat, text)
+        discord_bot = holder["discord"]
+        if discord_bot is None or cfg.discord.telegram_notifications:
+            await client.send_message(cfg.telegram.notify_chat, text)
+        if discord_bot is not None:
+            await discord_bot.journal(text)
 
     engine = Engine(cfg, broker, Store("data/bot.sqlite"), ai, notify)
+    discord_token = env("DISCORD_TOKEN", False)
+    if cfg.discord.enabled and discord_token:
+        from .discord_bot.client import GoldDiscordBot
+
+        holder["discord"] = GoldDiscordBot(engine)
     sources = [await client.get_peer_id(c) for c in cfg.telegram.source_chats]
     allowed = set(cfg.telegram.allowed_senders)
 
@@ -113,9 +126,14 @@ async def run(config_path: str) -> None:
 
         app = create_app(engine, env("PANEL_PASSWORD"))
         tasks.append(asyncio.create_task(serve(app, cfg.panel.host, cfg.panel.port)))
+    if holder["discord"] is not None:
+        tasks.append(asyncio.create_task(holder["discord"].start(discord_token)))
+        log.info("Bot Discord en cours de connexion (tape /setup sur ton serveur la première fois)")
     try:
         await client.run_until_disconnected()
     finally:
+        if holder["discord"] is not None:
+            await holder["discord"].close()
         for t in tasks:
             t.cancel()
 

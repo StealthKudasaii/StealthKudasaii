@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import asdict
 from datetime import datetime, timedelta
@@ -15,6 +16,11 @@ from .store import Store, row_side, row_tps
 
 log = logging.getLogger(__name__)
 Notify = Callable[[str], Awaitable[None]]
+# Écouteur d'événements (Discord...) : reçoit (type, données). Voir Engine.emit pour la liste des types.
+Listener = Callable[[str, dict], Awaitable[None]]
+# Validation manuelle d'un signal : reçoit la demande, renvoie un multiplicateur de risque
+# (1 = prendre, 0.5 = moitié, 0 = refuser) ou None (= laisser la décision automatique).
+Approver = Callable[[dict], Awaitable[Optional[float]]]
 
 
 def leg_comment(sid: int, n: int) -> str:
@@ -56,9 +62,38 @@ class Engine:
         self.paused = False
         self.skip_next = 0  # "ne prenez pas le prochain trade" : nb de signaux à sauter
         self._lock = asyncio.Lock()  # un seul ordre/une seule modif à la fois
+        self.listeners: list[Listener] = []
+        self.approver: Optional[Approver] = None
+        self.notify_enabled = True  # False = plus de notifs texte Telegram (Discord prend le relais)
+        self._events: list[tuple[str, dict]] = []
+
+    # ------------------------------------------------------------ événements
+    def emit(self, kind: str, **data) -> None:
+        """Met un événement en file (appelable depuis un thread). Types :
+        message, signal_ignored, signal_rejected, trade_opened, trade_failed, tp_hit, sl_moved,
+        tp_changed, partial_close, trade_closed, paused, resumed, skip_next, settings, alert."""
+        self._events.append((kind, data))
+
+    async def flush_events(self) -> None:
+        while self._events:
+            kind, data = self._events.pop(0)
+            for listener in list(self.listeners):
+                try:
+                    await listener(kind, data)
+                except Exception:
+                    log.exception("écouteur d'événement en erreur (%s)", kind)
+
+    async def set_paused(self, paused: bool, by: str = "") -> None:
+        self.paused = paused
+        self.emit("paused" if paused else "resumed", by=by)
+        await self.notify(("⏸ Pause : plus de nouveaux trades." if paused else "▶️ Le bot reprend les signaux.")
+                          + (f" ({by})" if by else ""))
 
     async def notify(self, text: str) -> None:
+        await self.flush_events()
         log.info("NOTIF: %s", text.replace("\n", " | "))
+        if not self.notify_enabled:
+            return
         if self._notify:
             try:
                 await self._notify(text)
@@ -124,6 +159,10 @@ class Engine:
             await self.notify(f"⚠️ Impossible de lire un message (erreur IA : {e}).\n« {text[:200]} »")
             return
         self.store.save_message(chat_id, msg_id, text, parsed.model_dump(mode="json") if parsed else None)
+        self.emit("message", msg_id=msg_id, text=text, edited=edited,
+                  action=parsed.action.value if parsed else None,
+                  is_gold=parsed.symbol_is_gold if parsed else None,
+                  notes=parsed.notes if parsed else "", confidence=parsed.confidence if parsed else None)
         if parsed is None or parsed.action == Action.IGNORE or not parsed.symbol_is_gold:
             return
         is_signal = parsed.action == Action.NEW_SIGNAL
@@ -145,6 +184,7 @@ class Engine:
                 await self.on_new_signal(parsed, msg_id, text, max_sl)
             else:
                 await self.on_command(parsed, reply_to, text)
+        await self.flush_events()
 
     # -------------------------------------------------------- nouveau signal
     def build_signal(self, p: ParsedMessage, msg_id: int) -> Signal:
@@ -184,17 +224,21 @@ class Engine:
     async def on_new_signal(self, parsed: ParsedMessage, msg_id: int, text: str,
                             max_sl: Optional[float] = None) -> None:
         if parsed.confidence < 0.7:
+            self.emit("signal_ignored", msg_id=msg_id, text=text, reason=f"signal ambigu ({parsed.confidence:.0%})")
             await self.notify(f"🤔 Signal ambigu, PAS pris (certitude {parsed.confidence:.0%}) : {parsed.notes}\n« {text[:300]} »")
             return
         try:
             signal = self.build_signal(parsed, msg_id)
         except Rejected as e:
+            self.emit("signal_ignored", msg_id=msg_id, text=text, reason=str(e))
             await self.notify(f"⛔ Signal ignoré : {e}\n« {text[:300]} »")
             return
         if max_sl is not None:
             entry = signal.entry_high if signal.side == Side.BUY else signal.entry_low
             dist = abs(entry - signal.stop_loss)
             if dist > max_sl:
+                self.emit("signal_ignored", msg_id=msg_id, text=text,
+                          reason=f"groupe principal : SL à {dist:.2f} $ (max {max_sl:g} $)")
                 await self.notify(f"⛔ Signal du groupe principal ignoré : SL à {dist:.2f} $ de l'entrée "
                                   f"(max {max_sl:g} $).\n« {text[:300]} »")
                 return
@@ -203,13 +247,13 @@ class Engine:
         server_time = await self.call(self.broker.server_time)
 
         if self.paused:
-            self.store.add_signal(signal, "rejected", server_time, reason="bot en pause")
+            self._reject(signal, server_time, "bot en pause", text)
             await self.notify(f"⏸ Bot en pause, signal non pris.\n{head}")
             return
 
         if self.skip_next > 0:
             self.skip_next -= 1
-            self.store.add_signal(signal, "rejected", server_time, reason="consigne : ne pas prendre le prochain trade")
+            self._reject(signal, server_time, "consigne : ne pas prendre le prochain trade", text)
             reste = f" ({self.skip_next} encore à sauter)" if self.skip_next else ""
             await self.notify(f"⏭ Signal sauté (consigne « ne prenez pas le prochain trade »){reste}.\n{head}")
             return
@@ -223,27 +267,106 @@ class Engine:
         if note:
             verdict_txt += f"\n⚠️ {note}"
 
+        vdump = verdict.model_dump(mode="json") if verdict else None
+        decided_by = ""
+        if self.approver is not None and self.needs_approval(verdict, note):
+            override = await self.ask_approval(signal, text, mult, verdict, note)
+            if override is not None:
+                mult, decided_by = override, "toi (Discord)"
+                verdict_txt += f"\n✋ Décision manuelle : {'refusé' if mult <= 0 else f'pris x{mult:g}'}"
+
         if mult <= 0:
-            self.store.add_signal(signal, "rejected", server_time,
-                                  verdict=verdict.model_dump(mode="json") if verdict else None,
-                                  reason=note or "refusé par l'analyse IA")
-            await self.notify(f"⛔ Signal refusé par l'analyse.\n{head}{verdict_txt}")
+            reason = "refusé par toi (Discord)" if decided_by else (note or "refusé par l'analyse IA")
+            self._reject(signal, server_time, reason, text, vdump)
+            await self.notify(f"⛔ Signal {'refusé' if decided_by else 'refusé par l analyse'}.\n{head}{verdict_txt}")
             return
 
+        await self.execute_signal(signal, mult, server_time, head, verdict_txt, vdump, text)
+
+    def _reject(self, signal: Signal, server_time: datetime, reason: str, text: str = "",
+                verdict: Optional[dict] = None) -> int:
+        sid = self.store.add_signal(signal, "rejected", server_time, verdict=verdict, reason=reason)
+        self.emit("signal_rejected", sid=sid, reason=reason, text=text, verdict=verdict, **self._signal_info(signal))
+        return sid
+
+    @staticmethod
+    def _signal_info(signal: Signal) -> dict:
+        return {"side": signal.side.value, "entry_low": signal.entry_low, "entry_high": signal.entry_high,
+                "sl": signal.stop_loss, "tps": list(signal.take_profits)}
+
+    # ------------------------------------------------------ validation manuelle
+    def needs_approval(self, verdict: Optional[AnalystVerdict], note: str) -> bool:
+        mode = self.cfg.discord.approval_mode
+        if mode == "always":
+            return True
+        if mode == "doubts":
+            return bool(note) or (verdict is not None and verdict.decision != Decision.APPROVE)
+        return False
+
+    async def ask_approval(self, signal: Signal, text: str, mult: float,
+                           verdict: Optional[AnalystVerdict], note: str) -> Optional[float]:
+        """Demande ton avis (Discord) sans bloquer la gestion des trades ouverts pendant l'attente."""
+        preview = None
+        try:
+            state = await self.call(self.account_state)
+            spec = await self.call(self.broker.spec)
+            plan = plan_trade(signal, state, spec, self.broker.loss_per_lot, self.cfg.risk, self.cfg.management,
+                              mult if mult > 0 else 1.0)
+            preview = {"order_type": plan.order_type, "entry": plan.entry, "volume": plan.total_volume,
+                       "risk": plan.risk_money, "legs": [asdict(l) for l in plan.legs], "notes": plan.notes}
+        except Rejected as e:
+            log.info("Pas de validation demandée : le signal serait refusé de toute façon (%s)", e)
+            return None
+        request = {**self._signal_info(signal), "text": text, "auto_multiplier": mult, "note": note,
+                   "verdict": verdict.model_dump(mode="json") if verdict else None, "preview": preview,
+                   "timeout": self.cfg.discord.approval_timeout_seconds,
+                   "on_timeout": self.cfg.discord.approval_on_timeout}
+        await self.flush_events()
+        locked = self._lock.locked()
+        if locked:
+            self._lock.release()  # la boucle de gestion (BE, TP...) continue pendant que tu réfléchis
+        try:
+            answer = await asyncio.wait_for(self.approver(request), timeout=request["timeout"] + 5)
+        except Exception:
+            log.exception("validation Discord impossible")
+            answer = None
+        finally:
+            if locked:
+                await self._lock.acquire()
+        if answer is None:  # pas de réponse à temps
+            if request["on_timeout"] == "take":
+                return max(mult, 1.0) if mult > 0 else 1.0
+            if request["on_timeout"] == "skip":
+                return 0.0
+            return None  # "auto" : décision de l'IA
+        return max(0.0, min(1.0, answer))
+
+    # ------------------------------------------------------------- exécution
+    async def execute_signal(self, signal: Signal, mult: float, server_time: datetime, head: str,
+                             verdict_txt: str = "", vdump: Optional[dict] = None, text: str = "",
+                             existing_sid: Optional[int] = None) -> Optional[int]:
         try:
             state = await self.call(self.account_state)
             spec = await self.call(self.broker.spec)
             plan = plan_trade(signal, state, spec, self.broker.loss_per_lot, self.cfg.risk, self.cfg.management, mult)
         except Rejected as e:
-            self.store.add_signal(signal, "rejected", server_time,
-                                  verdict=verdict.model_dump(mode="json") if verdict else None, reason=str(e))
+            if existing_sid:
+                self.store.update_signal(existing_sid, reason=f"toujours refusé : {e}")
+                self.emit("alert", text=f"#{existing_sid} toujours impossible à prendre : {e}")
+            else:
+                self._reject(signal, server_time, str(e), text, vdump)
             await self.notify(f"⛔ Signal non pris : {e}\n{head}{verdict_txt}")
-            return
+            return None
 
         status = "dry_run" if self.cfg.dry_run else "open"
-        sid = self.store.add_signal(signal, status, server_time, entry=plan.entry, plan=asdict(plan),
-                                    verdict=verdict.model_dump(mode="json") if verdict else None,
-                                    legs=len(plan.legs))
+        if existing_sid:
+            sid = existing_sid
+            self.store.update_signal(sid, status=status, entry=plan.entry, legs=len(plan.legs), reason="",
+                                     plan=json.dumps(asdict(plan), ensure_ascii=False),
+                                     server_time=server_time.isoformat(timespec="seconds"))
+        else:
+            sid = self.store.add_signal(signal, status, server_time, entry=plan.entry, plan=asdict(plan),
+                                        verdict=vdump, legs=len(plan.legs))
         self.store.update_signal(sid, tps=[l.tp for l in plan.legs])
 
         results = []
@@ -259,8 +382,9 @@ class Engine:
         ok = [r for r in results if r.ok]
         if not ok:
             self.store.update_signal(sid, status="failed", reason=results[0].message)
+            self.emit("trade_failed", sid=sid, reason=results[0].message, **self._signal_info(signal))
             await self.notify(f"❌ Ordres REFUSÉS par le broker : {results[0].message}\n{head}")
-            return
+            return None
         legs_txt = "\n".join(f"  • {l.volume} lot → TP{n} {l.tp}" for n, l in enumerate(plan.legs, 1))
         prefix = "🧪 [DRY RUN, rien envoyé] " if self.cfg.dry_run else "✅ "
         msg = (f"{prefix}Trade #{sid} {plan.side.value} {plan.total_volume} lot "
@@ -270,7 +394,29 @@ class Engine:
             msg += "\nℹ️ " + " / ".join(plan.notes)
         if len(ok) < len(results):
             msg += f"\n⚠️ {len(results) - len(ok)} ordre(s) refusé(s) : " + "; ".join(r.message for r in results if not r.ok)
+        self.emit("trade_opened", sid=sid, dry_run=self.cfg.dry_run, order_type=plan.order_type, entry=plan.entry,
+                  sl=plan.sl, volume=plan.total_volume, risk=plan.risk_money, notes=plan.notes,
+                  legs=[asdict(l) for l in plan.legs], verdict=vdump, text=text,
+                  refused=[r.message for r in results if not r.ok], side=signal.side.value,
+                  signal=self._signal_info(signal))
         await self.notify(msg + verdict_txt)
+        return sid
+
+    async def take_rejected(self, sid: int, mult: float = 1.0, by: str = "Discord") -> Optional[int]:
+        """« Prendre quand même » un signal refusé (pause, IA, toi...). Les règles de risque s'appliquent toujours."""
+        async with self._lock:
+            row = self.store.signal(sid)
+            if row is None or row["status"] != "rejected":
+                raise ValueError("ce signal n'est pas (ou plus) en attente de décision")
+            signal = Signal(Side(row["side"]), row["entry_low"], row["entry_high"], row["sl"], row_tps(row),
+                            True, row["msg_id"])
+            head = (f"{'🟢 BUY' if signal.side == Side.BUY else '🔴 SELL'} GOLD "
+                    f"{signal.entry_low}-{signal.entry_high} SL {signal.stop_loss} TP {signal.take_profits}")
+            server_time = await self.call(self.broker.server_time)
+            result = await self.execute_signal(signal, mult, server_time, head, f"\n✋ Pris quand même ({by})",
+                                               existing_sid=sid)
+        await self.flush_events()
+        return result
 
     # -------------------------------------------------------- commandes
     def target_signal(self, reply_to: Optional[int]):
@@ -300,6 +446,7 @@ class Engine:
         for action in actions:
             if action == Action.SKIP_NEXT:
                 n = self.skip_next = max(1, p.skip_count or 1)
+                self.emit("skip_next", count=n, by="groupe")
                 await self.notify("⏭ OK : le prochain signal ne sera pas pris." if n == 1
                                   else f"⏭ OK : les {n} prochains signaux ne seront pas pris.")
                 continue
@@ -355,6 +502,7 @@ class Engine:
         for _, o in orders:
             await self.call(self.broker.modify_order, o.ticket, o.price, sl, o.tp)
         self.store.update_signal(sid, sl=sl)
+        self.emit("sl_moved", sid=sid, sl=sl, reason=reason)
         await self.notify(f"🛡 #{sid} : SL déplacé à {sl} ({reason}).")
         return True
 
@@ -368,6 +516,7 @@ class Engine:
             if i - 1 < len(tps):
                 await self.call(self.broker.modify_order, o.ticket, o.price, o.sl, tps[i - 1])
         self.store.update_signal(sid, tps=tps)
+        self.emit("tp_changed", sid=sid, tps=tps)
         await self.notify(f"🎯 #{sid} : TP mis à jour {tps}.")
 
     def finalize(self, row, reason: str = "") -> float:
@@ -383,6 +532,8 @@ class Engine:
         if reason:
             fields["reason"] = reason
         self.store.update_signal(sid, **fields)
+        self.emit("trade_closed", sid=sid, pnl=pnl, reason=reason or row["reason"] or "",
+                  tps_reached=row["tps_reached"], side=row["side"], entry=row["entry"])
         return pnl or 0.0
 
     async def move_be(self, row, reason: str) -> bool:
@@ -414,6 +565,7 @@ class Engine:
         for i, price in valid.items():
             tps[i - 1] = price
         self.store.update_signal(sid, tps=tps)
+        self.emit("tp_changed", sid=sid, tps=tps)
         changed = ", ".join(f"TP{i} → {price}" for i, price in sorted(valid.items()))
         msg = f"🎯 #{sid} : {changed}."
         if ignored:
@@ -448,12 +600,16 @@ class Engine:
             r = await self.call(self.broker.close_position, p.ticket, vol)
             if r.ok:
                 closed = round(closed + vol, 8)
+        self.emit("partial_close", sid=sid, closed=closed, total=total, fraction=fraction)
         await self.notify(f"✂️ #{sid} : {closed} lot fermé sur {total} (consigne : {fraction:.0%}).")
 
-    async def close_everything(self) -> None:
+    async def close_everything(self, reason: str = "commande /closeall") -> int:
         async with self._lock:
-            for row in self.store.open_signals():
-                await self.close_signal(row, reason="commande /closeall")
+            rows = self.store.open_signals()
+            for row in rows:
+                await self.close_signal(row, reason=reason)
+        await self.flush_events()
+        return len(rows)
 
     # -------------------------------------------------- gestion continue
     def manage_once(self) -> list[str]:
@@ -491,6 +647,7 @@ class Engine:
             reached = max(row["tps_reached"], reached_closed, reached_price)
             if reached > row["tps_reached"]:
                 self.store.update_signal(sid, tps_reached=reached)
+                self.emit("tp_hit", sid=sid, n=reached, price=price)
                 out.append(f"🎯 #{sid} : TP{reached} atteint.")
 
             moved_to = None
@@ -508,6 +665,7 @@ class Engine:
             if moved_to is not None:
                 label = "break-even" if reached < 2 or not mgmt.trail_to_previous_tp else f"TP{reached - 1}"
                 self.store.update_signal(sid, sl=moved_to)
+                self.emit("sl_moved", sid=sid, sl=moved_to, reason=label)
                 out.append(f"🛡 #{sid} : SL remonté à {moved_to} ({label}), le reste du trade est protégé.")
         return out
 
@@ -518,6 +676,7 @@ class Engine:
                     msgs = await self.call(self.manage_once)
                 for m in msgs:
                     await self.notify(m)
+                await self.flush_events()
             except Exception:
                 log.exception("erreur dans la boucle de gestion")
             await asyncio.sleep(self.cfg.management.check_interval_seconds)

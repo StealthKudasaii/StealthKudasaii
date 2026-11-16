@@ -8,11 +8,9 @@ from __future__ import annotations
 import asyncio
 import collections
 import hmac
-import json
 import logging
 import secrets
 import time
-from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -21,9 +19,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ValidationError
 
-from .config import OVERRIDES_PATH, AICfg, ManagementCfg, RiskCfg
-from .engine import Engine, leg_index
-from .store import row_tps
+from .config import OVERRIDES_PATH, AICfg, DiscordCfg, ManagementCfg, RiskCfg
+from . import views
+from .engine import Engine
 
 log = logging.getLogger(__name__)
 WEB = Path(__file__).parent / "web"
@@ -33,10 +31,46 @@ SESSION_DAYS = 7
 # Réglages modifiables depuis le site (le reste se change dans config.yaml + redémarrage).
 EDITABLE: dict[str, tuple[type[BaseModel], set[str]]] = {
     "risk": (RiskCfg, {"risk_per_trade_pct", "max_daily_loss_pct", "max_open_signals", "max_trades_per_day",
-                       "max_spread", "max_entry_drift", "far_entry_action", "min_sl_distance", "max_sl_distance"}),
+                       "max_spread", "max_entry_drift", "far_entry_action", "min_sl_distance", "max_sl_distance",
+                       "fixed_lot"}),
     "management": (ManagementCfg, {"tp_split", "breakeven_after_tp", "breakeven_buffer", "trail_to_previous_tp"}),
     "ai": (AICfg, {"analyst_mode", "on_analyst_error"}),
+    "discord": (DiscordCfg, {"approval_mode", "approval_timeout_seconds", "approval_on_timeout"}),
 }
+
+
+def current_settings(engine: Engine) -> dict[str, dict[str, Any]]:
+    return {sec: {k: getattr(getattr(engine.cfg, sec), k) for k in sorted(keys)}
+            for sec, (_, keys) in EDITABLE.items()}
+
+
+def apply_settings(engine: Engine, body: dict[str, dict[str, Any]], overrides_path: Path = OVERRIDES_PATH) -> dict:
+    """Valide et applique des réglages (site ou Discord), puis les enregistre. ValueError si invalide."""
+    new_sections = {}
+    for sec, values in body.items():
+        if sec not in EDITABLE:
+            raise ValueError(f"section inconnue : {sec}")
+        model, keys = EDITABLE[sec]
+        unknown = set(values) - keys
+        if unknown:
+            raise ValueError(f"réglage non modifiable : {', '.join(sorted(unknown))}")
+        merged = getattr(engine.cfg, sec).model_dump() | values
+        try:
+            new_sections[sec] = model.model_validate(merged)
+        except ValidationError as e:
+            raise ValueError("valeur invalide : " + "; ".join(
+                f"{'.'.join(map(str, err['loc']))} {err['msg']}" for err in e.errors()))
+    if "management" in new_sections:
+        split = new_sections["management"].tp_split
+        if not split or any(x <= 0 for x in split):
+            raise ValueError("la répartition des TP doit contenir des nombres positifs")
+    for sec, model in new_sections.items():
+        setattr(engine.cfg, sec, model)
+    overrides_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(overrides_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(current_settings(engine), f, allow_unicode=True, sort_keys=False)
+    log.info("Réglages modifiés %s", body)
+    return current_settings(engine)
 
 
 class Login(BaseModel):
@@ -108,97 +142,19 @@ def create_app(engine: Engine, password: str, overrides_path: Path = OVERRIDES_P
     # ------------------------------------------------------------- lecture
     @app.get("/api/status", dependencies=auth)
     async def status():
-        state = await engine.call(engine.account_state)
-        positions = await engine.call(engine.broker.positions)
-        cfg = engine.cfg
-        return {
-            "paused": engine.paused,
-            "dry_run": cfg.dry_run,
-            "account_mode": getattr(engine.broker, "account_mode", "SIMULÉ"),
-            "symbol": cfg.mt5.symbol,
-            "balance": round(state.balance, 2),
-            "floating": round(sum(p.profit for p in positions), 2),
-            "realized_today": round(state.realized_today, 2),
-            "open_risk": round(state.open_risk_money, 2),
-            "daily_loss_limit": round(state.balance * cfg.risk.max_daily_loss_pct / 100, 2),
-            "trades_today": state.trades_today,
-            "max_trades_per_day": cfg.risk.max_trades_per_day,
-            "open_signals": state.open_signals,
-            "bid": state.bid, "ask": state.ask,
-            "server_time": state.server_time.strftime("%d/%m %H:%M:%S"),
-        }
+        return await views.status_data(engine)
 
     @app.get("/api/trades", dependencies=auth)
     async def trades():
-        positions = await engine.call(engine.broker.positions)
-        orders = await engine.call(engine.broker.pending_orders)
-        out = []
-        for r in engine.store.open_signals():
-            sid = r["id"]
-            legs = [{"leg": i, "ticket": p.ticket, "volume": p.volume, "open": p.open_price, "sl": p.sl,
-                     "tp": p.tp, "profit": round(p.profit, 2)}
-                    for p in positions if (i := leg_index(p.comment, sid))]
-            pend = [{"leg": i, "ticket": o.ticket, "volume": o.volume, "price": o.price, "sl": o.sl, "tp": o.tp}
-                    for o in orders if (i := leg_index(o.comment, sid))]
-            out.append({
-                "id": sid, "side": r["side"], "entry": r["entry"], "sl": r["sl"], "tps": row_tps(r),
-                "tps_reached": r["tps_reached"], "created": r["server_time"],
-                "positions": sorted(legs, key=lambda x: x["leg"]), "orders": sorted(pend, key=lambda x: x["leg"]),
-                "floating": round(sum(l["profit"] for l in legs), 2),
-                "message": engine.store.message_for(r["msg_id"]),
-            })
-        return out
+        return await views.trades_data(engine)
 
     @app.get("/api/history", dependencies=auth)
     async def history(limit: int = 100):
-        out = []
-        for r in engine.store.history(min(limit, 500)):
-            verdict = None
-            if r["verdict"]:
-                v = json.loads(r["verdict"])
-                verdict = {"decision": v.get("decision"), "summary": v.get("summary"),
-                           "multiplier": v.get("risk_multiplier")}
-            out.append({
-                "id": r["id"], "created": r["server_time"], "side": r["side"], "status": r["status"],
-                "entry_zone": [r["entry_low"], r["entry_high"]], "entry": r["entry"],
-                "sl": (json.loads(r["plan"]).get("sl") if r["plan"] else None) or r["sl"],  # SL d'origine
-                "tps": row_tps(r), "tps_reached": r["tps_reached"], "pnl": r["pnl"], "reason": r["reason"],
-                "verdict": verdict, "message": engine.store.message_for(r["msg_id"]),
-            })
-        return out
+        return views.history_data(engine, limit)
 
     @app.get("/api/stats", dependencies=auth)
     async def stats():
-        rows = engine.store.closed_with_pnl()
-        pnls = [r["pnl"] for r in rows]
-        wins = [p for p in pnls if p > 0]
-        losses = [p for p in pnls if p < 0]
-        equity, total = [], 0.0
-        for r in rows:
-            total += r["pnl"]
-            equity.append({"t": r["closed_at"] or r["created"], "v": round(total, 2)})
-        now = await engine.call(engine.broker.server_time)
-
-        def since(days: int) -> float:
-            limit = (now - timedelta(days=days)).isoformat()
-            return round(sum(r["pnl"] for r in rows if (r["closed_at"] or "") >= limit), 2)
-
-        all_rows = engine.store.history(100000)
-        return {
-            "closed": len(pnls),
-            "wins": len(wins), "losses": len(losses),
-            "winrate": round(100 * len(wins) / len(pnls), 1) if pnls else None,
-            "total": round(sum(pnls), 2),
-            "avg_win": round(sum(wins) / len(wins), 2) if wins else None,
-            "avg_loss": round(sum(losses) / len(losses), 2) if losses else None,
-            "profit_factor": round(sum(wins) / abs(sum(losses)), 2) if losses and wins else None,
-            "best": max(pnls) if pnls else None, "worst": min(pnls) if pnls else None,
-            "week": since(7), "month": since(30),
-            "signals_total": len(all_rows),
-            "signals_taken": sum(1 for r in all_rows if r["status"] in ("open", "closed")),
-            "signals_rejected": sum(1 for r in all_rows if r["status"] == "rejected"),
-            "equity": equity,
-        }
+        return await views.stats_data(engine)
 
     @app.get("/api/logs", dependencies=auth)
     async def logs():
@@ -207,21 +163,17 @@ def create_app(engine: Engine, password: str, overrides_path: Path = OVERRIDES_P
     # ------------------------------------------------------------- actions
     @app.post("/api/pause", dependencies=auth)
     async def pause():
-        engine.paused = True
-        log.info("Panel : bot mis en pause")
-        await engine.notify("⏸ Pause activée depuis le site.")
+        await engine.set_paused(True, by="site")
         return {"ok": True}
 
     @app.post("/api/resume", dependencies=auth)
     async def resume():
-        engine.paused = False
-        log.info("Panel : bot relancé")
-        await engine.notify("▶️ Le bot reprend (depuis le site).")
+        await engine.set_paused(False, by="site")
         return {"ok": True}
 
     @app.post("/api/closeall", dependencies=auth)
     async def closeall():
-        await engine.close_everything()
+        await engine.close_everything(reason="fermé depuis le site")
         return {"ok": True}
 
     def open_row(sid: int):
@@ -245,42 +197,19 @@ def create_app(engine: Engine, password: str, overrides_path: Path = OVERRIDES_P
         return {"ok": True}
 
     # ------------------------------------------------------------ réglages
-    def current_settings() -> dict[str, dict[str, Any]]:
-        return {sec: {k: getattr(getattr(engine.cfg, sec), k) for k in sorted(keys)}
-                for sec, (_, keys) in EDITABLE.items()}
-
     @app.get("/api/settings", dependencies=auth)
     async def get_settings():
-        return current_settings()
+        return current_settings(engine)
 
     @app.post("/api/settings", dependencies=auth)
     async def save_settings(body: dict[str, dict[str, Any]]):
-        new_sections = {}
-        for sec, values in body.items():
-            if sec not in EDITABLE:
-                raise HTTPException(400, f"section inconnue : {sec}")
-            model, keys = EDITABLE[sec]
-            unknown = set(values) - keys
-            if unknown:
-                raise HTTPException(400, f"réglage non modifiable : {', '.join(sorted(unknown))}")
-            merged = getattr(engine.cfg, sec).model_dump() | values
-            try:
-                new_sections[sec] = model.model_validate(merged)
-            except ValidationError as e:
-                raise HTTPException(400, "valeur invalide : " + "; ".join(
-                    f"{'.'.join(map(str, err['loc']))} {err['msg']}" for err in e.errors()))
-        if "management" in new_sections:
-            split = new_sections["management"].tp_split
-            if not split or any(x <= 0 for x in split):
-                raise HTTPException(400, "la répartition des TP doit contenir des nombres positifs")
-        for sec, model in new_sections.items():
-            setattr(engine.cfg, sec, model)
-        overrides_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(overrides_path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(current_settings(), f, allow_unicode=True, sort_keys=False)
-        log.info("Panel : réglages modifiés %s", body)
+        try:
+            result = apply_settings(engine, body, overrides_path)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        engine.emit("settings", by="site", changes=body)
         await engine.notify("⚙️ Réglages modifiés depuis le site.")
-        return current_settings()
+        return result
 
     # ------------------------------------------------------------- pages
     @app.get("/")

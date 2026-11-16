@@ -6,3 +6,5 @@ PyYAML>=6.0
 python-dotenv>=1.0
 fastapi>=0.110
 uvicorn>=0.29
+discord.py>=2.4
+matplotlib>=3.8

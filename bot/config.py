@@ -83,8 +83,25 @@ class PanelCfg(BaseModel):
     port: int = 8080
 
 
+class DiscordCfg(BaseModel):
+    enabled: bool = True                 # actif si DISCORD_TOKEN est rempli dans .env
+    # Quand te demander ton avis sur un signal (boutons Prendre / Moitié / Refuser) :
+    #   off = jamais, doubts = quand l'IA doute (REDUCE/REJECT ou IA injoignable), always = à chaque signal
+    approval_mode: Literal["off", "doubts", "always"] = "doubts"
+    approval_timeout_seconds: int = 120
+    # Sans réponse à temps : auto = décision de l'IA, take = on prend, skip = on ne prend pas
+    approval_on_timeout: Literal["auto", "take", "skip"] = "auto"
+    mirror_all_messages: bool = True     # recopier TOUS les messages du groupe dans #signaux (pas seulement les signaux)
+    telegram_notifications: bool = True  # continuer aussi les notifs dans tes Messages enregistrés Telegram
+    daily_recap_time: str = "23:30"      # heure du récap quotidien (heure du serveur MT5), "" = désactivé
+    dashboard_refresh_seconds: int = 30
+    role_name: str = "Trader Or"         # seuls ce rôle et les admins peuvent utiliser les commandes et boutons
+    category_name: str = "🟡 BOT OR"
+
+
 class Config(BaseModel):
     dry_run: bool = True
+    discord: DiscordCfg = Field(default_factory=DiscordCfg)
     panel: PanelCfg = Field(default_factory=PanelCfg)
     telegram: TelegramCfg
     mt5: MT5Cfg = Field(default_factory=MT5Cfg)
