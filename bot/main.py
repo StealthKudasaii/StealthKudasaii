@@ -127,7 +127,18 @@ async def run(config_path: str) -> None:
         app = create_app(engine, env("PANEL_PASSWORD"))
         tasks.append(asyncio.create_task(serve(app, cfg.panel.host, cfg.panel.port)))
     if holder["discord"] is not None:
-        tasks.append(asyncio.create_task(holder["discord"].start(discord_token)))
+        async def run_discord() -> None:
+            import discord
+
+            try:
+                await holder["discord"].start(discord_token)
+            except discord.LoginFailure:
+                log.error("❌ DISCORD : token invalide. Sur discord.com/developers > ton appli > Bot > Reset Token, "
+                          "colle le nouveau token dans .env (DISCORD_TOKEN=...) puis relance demarrer.bat.")
+            except Exception:
+                log.exception("❌ DISCORD : connexion impossible (le bot de trading continue sans Discord)")
+
+        tasks.append(asyncio.create_task(run_discord()))
         log.info("Bot Discord en cours de connexion (tape /setup sur ton serveur la première fois)")
     try:
         await client.run_until_disconnected()
