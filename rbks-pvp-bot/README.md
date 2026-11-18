@@ -34,7 +34,9 @@ Tout se gère depuis Discord (commandes slash, boutons, menus, fenêtres) ou dep
 
 ## Démarrage rapide
 
-Prérequis : **Node.js 22.12+** (ou Docker).
+**Sous Windows : double-clique sur `lancer-bot.bat`.** Il vérifie Node.js, installe les dépendances, crée le fichier `.env` (secret de session généré automatiquement) et l’ouvre dans le Bloc-notes s’il manque des valeurs, compile, lance le bot et le panel, puis le redémarre automatiquement s’il s’arrête.
+
+Autres systèmes — prérequis : **Node.js 22.12+** (ou Docker).
 
 ```bash
 cd rbks-pvp-bot

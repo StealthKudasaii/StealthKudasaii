@@ -6,6 +6,15 @@
 - Un serveur Discord dont tu es propriétaire ou administrateur.
 - 10 minutes pour créer l’application Discord ([DISCORD.md](DISCORD.md)).
 
+## Méthode simple (Windows) : `lancer-bot.bat`
+
+1. Installe Node.js (version LTS) depuis <https://nodejs.org>.
+2. Double-clique sur **`lancer-bot.bat`** dans le dossier `rbks-pvp-bot`.
+3. Au premier lancement, il installe les dépendances puis crée `.env` et l’ouvre dans le Bloc-notes : remplis `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` et `GUILD_ID` (voir le tableau du §2), enregistre, puis relance le `.bat`.
+4. Le bot démarre. Laisse la fenêtre ouverte : la fermer arrête le bot. En cas d’arrêt inattendu, il redémarre tout seul au bout de 15 secondes ; en cas d’erreur de configuration (token invalide, intents…), il affiche le problème et attend.
+
+Il reste à inviter le bot (§3) et à lancer `/setup installer` (§5). Les sections suivantes décrivent la méthode manuelle.
+
 ## 1. Installer les dépendances
 
 ```bash

@@ -14,7 +14,7 @@ async function main() {
     config = env();
   } catch (e) {
     logger.fatal((e as Error).message);
-    process.exit(1);
+    process.exit(2);
   }
   setTimezone(config.TIMEZONE);
   initDb(databasePath());
@@ -31,7 +31,7 @@ async function main() {
     else if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(msg)) logger.fatal('Impossible de joindre Discord : vérifie la connexion Internet du serveur (DNS, pare-feu).');
     else if (/disallowed intents/i.test(msg)) logger.fatal('Intents privilégiés refusés : active « Server Members Intent » et « Message Content Intent » dans le Portail développeur → Bot.');
     else logger.fatal({ err: e }, 'Connexion à Discord impossible');
-    process.exit(1);
+    process.exit(2);
   }
   startScheduler();
 
