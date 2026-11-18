@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PUBLICATION_KINDS, type PublicationKind } from '../../config/constants';
 import { publications, publishPublication } from '../../modules/publications';
-import { audit } from '../../modules/logs/audit';
+import { audit } from '../../modules/audit/audit';
 import { isHttpUrl } from '../../core/text';
 import { requireFeature } from '../middleware';
 import { action, field, FormError } from '../helpers';

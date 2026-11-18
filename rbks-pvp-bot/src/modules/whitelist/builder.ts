@@ -20,7 +20,7 @@ import { ephemeral, fail, fromEphemeralMessage, openModal, requireFeature } from
 import { channelId, roleId } from '../../core/resources';
 import { discordTs, parseDate, toFrInput } from '../../core/time';
 import { isHttpUrl, truncate } from '../../core/text';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { applications, choicesOf, forms, questions, reviewerRoles, type Form, type Question } from './forms.repo';
 import { BETA_TEMPLATE, FORM_STATE_LABEL, LIMITS, MAX_QUESTIONS, formState, pages, parseQuestionInput } from './forms.logic';
 import { buildPageModal, formPublicPayload, publishForm, scheduleFormRefresh } from './forms.service';

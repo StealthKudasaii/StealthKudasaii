@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { getSetting, setSetting } from '../../core/settings';
 import { reasons, tickets } from '../../modules/tickets/tickets.repo';
 import { closeTicket, publishTicketPanel, transcriptDir } from '../../modules/tickets/tickets.service';
-import { audit } from '../../modules/logs/audit';
+import { audit } from '../../modules/audit/audit';
 import { requireFeature } from '../middleware';
 import { action, field, FormError, page } from '../helpers';
 

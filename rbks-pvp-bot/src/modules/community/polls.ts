@@ -21,7 +21,7 @@ import { withLock } from '../../core/guards';
 import { discordTs, parseDuration } from '../../core/time';
 import { progressBar, sanitizeMentions, splitLines, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 
 const log = childLogger('polls');
 const MAX_OPTIONS = 20;

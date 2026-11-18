@@ -13,6 +13,7 @@ import { SqliteSessionStore } from './sessionStore';
 import { authRouter } from './auth';
 import { locals, requireAuth, verifyCsrf } from './middleware';
 import { memberName } from './helpers';
+import { isBotReady } from '../bot/client';
 import { dashboardRouter } from './routes/dashboard';
 import { botRouter } from './routes/bot';
 import { settingsRouter } from './routes/settings';
@@ -82,7 +83,7 @@ export function createApp() {
   Object.assign(app.locals, { C: constants, fmt: formatDate, toInputValue, toFrInput, progressBar, truncate, memberName, badge, brandUrl: e.PUBLIC_URL });
   app.use(locals);
 
-  app.get('/health', (_req, res) => res.json({ ok: true }));
+  app.get('/health', (_req, res) => res.json({ ok: true, discord: isBotReady() }));
   app.use(authRouter());
 
   // Tout ce qui suit exige une session valide ET un rôle autorisé (revérifié à chaque requête).

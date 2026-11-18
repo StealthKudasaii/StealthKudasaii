@@ -7,7 +7,7 @@ import { COLORS } from '../../config/constants';
 import { truncate } from '../../core/text';
 import { tryLock } from '../../core/guards';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { applyCleanup, computeCleanup, runSetup, type PlanItem, type SetupResult } from './setup.service';
 import { publishTicketPanel } from '../tickets/tickets.service';
 import { publishNotificationPanel } from '../notifications';

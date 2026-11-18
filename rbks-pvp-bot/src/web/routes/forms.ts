@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { applications, answersOf, choicesOf, forms, questions, reviewerRoles } from '../../modules/whitelist/forms.repo';
 import { BETA_TEMPLATE, FORM_STATE_LABEL, MAX_QUESTIONS, answerText, formState, pages, parseQuestionInput } from '../../modules/whitelist/forms.logic';
 import { addApplicationNote, decide, publishForm, scheduleFormRefresh, statsSummary, unpublishForm } from '../../modules/whitelist/forms.service';
-import { audit } from '../../modules/logs/audit';
+import { audit } from '../../modules/audit/audit';
 import { can } from '../../core/permissions';
 import { channelId, roleId } from '../../core/resources';
 import { isHttpUrl } from '../../core/text';

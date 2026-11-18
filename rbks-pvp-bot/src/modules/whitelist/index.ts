@@ -20,7 +20,7 @@ import { brandEmbed, errorEmbed, infoEmbed, successEmbed, warnEmbed } from '../.
 import { can } from '../../core/permissions';
 import { discordTs, formatDate } from '../../core/time';
 import { truncate } from '../../core/text';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { applications, drafts, forms, questions, reviewerRoles, type Form } from './forms.repo';
 import { FORM_STATE_LABEL, formState, pages } from './forms.logic';
 import {

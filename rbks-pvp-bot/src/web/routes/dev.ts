@@ -13,7 +13,7 @@ import {
   syncTask,
   syncVersion,
 } from '../../modules/dev/dev.service';
-import { audit } from '../../modules/logs/audit';
+import { audit } from '../../modules/audit/audit';
 import { splitLines } from '../../core/text';
 import { requireFeature } from '../middleware';
 import { action, field, FormError } from '../helpers';

@@ -4,7 +4,7 @@ import { getClient, isBotReady } from '../../bot/client';
 import { getSetting, setSetting } from '../../core/settings';
 import { isHttpUrl } from '../../core/text';
 import { updateAvatar, updateNickname, updatePresence, updateUsername } from '../../modules/botprofile';
-import { audit } from '../../modules/logs/audit';
+import { audit } from '../../modules/audit/audit';
 import { flash, requireFeature, verifyCsrf } from '../middleware';
 import { action, field, FormError } from '../helpers';
 

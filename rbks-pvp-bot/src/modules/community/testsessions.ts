@@ -13,7 +13,7 @@ import { withLock } from '../../core/guards';
 import { discordTs, formatDuration, parseDate } from '../../core/time';
 import { truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { notificationRoleId } from '../notifications';
 
 const log = childLogger('testsessions');

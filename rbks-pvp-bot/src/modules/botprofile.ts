@@ -2,7 +2,7 @@ import { ActivityType, type PresenceStatusData } from 'discord.js';
 import { getClient, getGuild, isBotReady } from '../bot/client';
 import { getSetting, setSetting, SETTING_DEFAULTS } from '../core/settings';
 import { explainDiscordError } from '../bot/reply';
-import { audit } from './logs/audit';
+import { audit } from './audit/audit';
 
 type Presence = (typeof SETTING_DEFAULTS)['bot.presence'];
 

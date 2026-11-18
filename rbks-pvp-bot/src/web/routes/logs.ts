@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listLogs, logData, LOG_TYPES } from '../../modules/logs/audit';
+import { listLogs, logData, LOG_TYPES } from '../../modules/audit/audit';
 import { requireFeature } from '../middleware';
 import { page } from '../helpers';
 

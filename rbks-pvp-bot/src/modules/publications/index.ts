@@ -17,7 +17,7 @@ import { fetchMessage, fetchTextChannel } from '../../bot/messages';
 import { channelId } from '../../core/resources';
 import { discordTs, parseDate } from '../../core/time';
 import { isHttpUrl, splitLines, truncate } from '../../core/text';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { notificationRoleId } from '../notifications';
 import type { ChannelKey } from '../../config/layout';
 

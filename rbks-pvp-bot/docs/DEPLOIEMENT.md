@@ -1,6 +1,6 @@
 # Déploiement sur un serveur (VPS)
 
-Exemple pour un VPS Linux (Ubuntu/Debian) avec un nom de domaine pointant vers lui (ex. `panel.ton-domaine.fr`). Deux méthodes : **Docker** (la plus simple) ou **Node.js + PM2**.
+Exemple pour un VPS Linux (Ubuntu/Debian) avec un nom de domaine pointant vers lui (ex. `panel.ton-domaine.fr`). La méthode recommandée installe le bot en une commande et le **met à jour automatiquement à chaque push** ; Docker et PM2 restent possibles (mises à jour manuelles).
 
 > Un bot Discord ne doit tourner qu’**en un seul exemplaire**. Ne lance jamais deux instances avec le même token.
 
@@ -16,6 +16,75 @@ WEB_HOST=127.0.0.1     # le panel n'écoute qu'en local, le reverse proxy l'expo
 ```
 
 Ajoute `https://panel.ton-domaine.fr/auth/callback` dans les redirects OAuth2 ([OAUTH2.md](OAUTH2.md)).
+
+## Méthode recommandée — installation en une commande + mise à jour automatique
+
+Le bot tourne comme un service (démarre avec le VPS, redémarre s’il plante) et **se met à jour tout seul à chaque push sur GitHub** : plus besoin de te connecter au VPS pour réinstaller.
+
+### 1. Récupérer le code sur le VPS (une seule fois)
+
+Dépôt **public** :
+
+```bash
+git clone https://github.com/<compte>/<depot>.git
+```
+
+Dépôt **privé** : crée une clé de déploiement en lecture seule (aucun mot de passe GitHub sur le VPS) :
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/rbks_deploy -N ""
+cat ~/.ssh/rbks_deploy.pub
+```
+
+Sur GitHub : dépôt → **Settings → Deploy keys → Add deploy key** → colle la clé, **sans** cocher « Allow write access ». Puis :
+
+```bash
+printf 'Host github.com\n  IdentityFile ~/.ssh/rbks_deploy\n' >> ~/.ssh/config
+git clone git@github.com:<compte>/<depot>.git
+```
+
+Place-toi sur la branche que le VPS doit suivre (en général `main`) : `git checkout main`.
+
+### 2. Installer
+
+```bash
+cd <depot>/rbks-pvp-bot
+./deploy/install-vps.sh
+```
+
+Le script installe Node.js 22 si besoin, les dépendances, crée `.env` (secret de session généré) et s’arrête pour que tu le complètes (`nano .env`). Relance-le ensuite : il compile et crée trois services systemd :
+
+| Service | Rôle |
+|---|---|
+| `rbks-bot` | le bot et le panel (démarrage automatique, redémarrage en cas de crash) |
+| `rbks-update.timer` | vérifie GitHub **chaque minute** |
+| `rbks-update` | applique la mise à jour (`deploy/update.sh`) |
+
+### 3. Mettre à jour = pousser sur GitHub
+
+Tu pousses sur la branche suivie → environ 1 minute plus tard, le VPS :
+
+1. récupère le code (avance uniquement : rien n’est jamais écrasé de force) ;
+2. ne fait rien d’autre si le commit ne touche pas `rbks-pvp-bot/` ;
+3. réinstalle les dépendances **seulement** si `package.json`/`package-lock.json` ont changé ;
+4. compile à côté de la version en service : si la compilation échoue, **l’ancienne version continue de tourner** sans interruption ;
+5. redémarre le bot et vérifie qu’il se reconnecte à Discord dans les 90 secondes ;
+6. sinon, **revient automatiquement à la version précédente** et ne retente plus ce commit (le prochain push est essayé normalement).
+
+Chaque mise à jour (ou annulation) est annoncée dans le salon de logs du bot, et `/botinfo` affiche le commit en service. Les migrations de base de données s’appliquent seules au démarrage ; `.env` et `data/` ne sont jamais touchés par les mises à jour.
+
+### Commandes utiles
+
+```bash
+journalctl -u rbks-bot -f            # logs du bot
+journalctl -u rbks-update -f         # logs des mises à jour
+sudo systemctl start rbks-update     # mettre à jour tout de suite
+sudo systemctl stop rbks-update.timer   # suspendre les mises à jour auto
+sudo systemctl start rbks-update.timer  # les réactiver
+sudo systemctl restart rbks-bot      # redémarrer le bot
+```
+
+Si une mise à jour est ignorée avec « Fichiers suivis modifiés directement sur le VPS » : ne modifie pas le code sur le VPS (seulement `.env`), annule avec `git checkout -- .` puis laisse faire. Après un force-push sur GitHub, aligne le VPS à la main : `git fetch && git reset --hard origin/main`.
 
 ## Méthode A — Docker
 

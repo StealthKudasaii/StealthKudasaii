@@ -20,7 +20,7 @@ import { discordTs, formatDuration } from '../../core/time';
 import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
 import { getSetting } from '../../core/settings';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { applications, answersOf, choicesOf, drafts, forms, questions, type Application, type Form, type Question } from './forms.repo';
 import { FORM_STATE_LABEL, LIMITS, answerText, formState, pages, snapshotAnswers, validateAnswers } from './forms.logic';
 

@@ -18,7 +18,8 @@ import { roleId } from '../../core/resources';
 import { discordTs, formatDuration } from '../../core/time';
 import { truncate } from '../../core/text';
 import { env } from '../../config/env';
-import { audit } from '../logs/audit';
+import { readDeployInfo } from '../../core/deploy';
+import { audit } from '../audit/audit';
 import { serverStats } from '../stats/stats.service';
 
 const startedAt = Date.now();
@@ -127,7 +128,7 @@ export const generalModule: BotModule = {
         const e = brandEmbed({ title: `🤖 ${i.client.user.username}`, description: `Bot officiel de **${getSetting('brand.name')}**.` })
           .setThumbnail(i.client.user.displayAvatarURL({ size: 256 }))
           .addFields(
-            { name: 'Version', value: `v${pkgVersion}`, inline: true },
+            { name: 'Version', value: `v${pkgVersion}${readDeployInfo() ? ` (\`${readDeployInfo()!.commit.slice(0, 7)}\`)` : ''}`, inline: true },
             { name: 'En ligne depuis', value: discordTs(startedAt, 'R'), inline: true },
             { name: 'Latence', value: `${Math.round(i.client.ws.ping)} ms`, inline: true },
             { name: 'Mémoire', value: `${mem.toFixed(0)} Mo`, inline: true },

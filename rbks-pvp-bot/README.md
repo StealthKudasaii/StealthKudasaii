@@ -53,6 +53,8 @@ En développement : `npm run dev` (rechargement automatique). Tests : `npm test`
 
 👉 Guide pas à pas : [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
+**Sur un VPS Linux** : `./deploy/install-vps.sh` installe le bot comme service et active la **mise à jour automatique à chaque push sur GitHub** (avec retour arrière si la nouvelle version échoue). Voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+
 ## Commandes Discord
 
 Toutes les commandes vérifient les permissions **côté serveur**. `/help` n’affiche que ce que la personne peut utiliser.
@@ -90,13 +92,14 @@ rbks-pvp-bot/
 │   │   ├── publications/        # patch notes et annonces
 │   │   ├── notifications/       # rôles de notification
 │   │   ├── general/             # aide, ping, infos, stats, permissions, règlement
-│   │   ├── logs/                # journal (base + salon Discord)
+│   │   ├── audit/               # journal (base + salon Discord)
 │   │   └── stats/ botprofile.ts
 │   ├── web/                     # serveur, OAuth2, sessions, CSRF, routes du panel
 │   └── scripts/                 # invite, enregistrement des commandes, sauvegarde
 ├── web/views, web/public        # gabarits EJS, CSS, JS
 ├── test/                        # 36 tests (logique, base, composants Discord, panel HTTP)
 ├── docs/                        # guides
+├── deploy/                      # install-vps.sh, update.sh (mise à jour automatique)
 ├── Dockerfile, docker-compose.yml, ecosystem.config.cjs
 └── .env.example
 ```

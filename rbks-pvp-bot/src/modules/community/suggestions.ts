@@ -24,7 +24,7 @@ import { getSetting } from '../../core/settings';
 import { hitCooldown, withLock } from '../../core/guards';
 import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 
 const log = childLogger('suggestions');
 

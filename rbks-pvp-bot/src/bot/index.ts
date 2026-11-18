@@ -6,6 +6,9 @@ import { attachEvents } from './events';
 import { env } from '../config/env';
 import { childLogger } from '../core/logger';
 import { applyPresence } from '../modules/botprofile';
+import { markDeployAnnounced, readDeployInfo } from '../core/deploy';
+import { audit } from '../modules/audit/audit';
+import { COLORS } from '../config/constants';
 import { generalModule } from '../modules/general';
 import { setupModule } from '../modules/setup';
 import { ticketsModule } from '../modules/tickets';
@@ -71,6 +74,21 @@ export async function startBot() {
       }
     }
     applyPresence();
+    // Annonce dans les logs la dernière mise à jour automatique (ou son annulation).
+    const deploy = readDeployInfo();
+    if (deploy && !deploy.announced) {
+      markDeployAnnounced();
+      const short = (c: string) => c.slice(0, 7);
+      await audit({
+        type: 'admin',
+        action: deploy.status === 'rollback' ? 'deploy_rollback' : 'deploy',
+        message:
+          deploy.status === 'rollback'
+            ? `⚠️ Mise à jour \`${short(deploy.commit)}\` annulée (${deploy.reason ?? 'échec'}) : retour à \`${short(deploy.previous)}\`.`
+            : `🔄 Bot mis à jour : \`${short(deploy.previous)}\` → \`${short(deploy.commit)}\`\n> ${deploy.message}`,
+        color: deploy.status === 'rollback' ? COLORS.warning : COLORS.success,
+      });
+    }
   });
 
   client.on(Events.Error, (e) => log.error({ err: e }, 'Erreur du client Discord'));

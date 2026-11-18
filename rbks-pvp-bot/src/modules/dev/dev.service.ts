@@ -17,7 +17,7 @@ import { getSetting, setSetting } from '../../core/settings';
 import { discordTs } from '../../core/time';
 import { progressBar, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { featuresOf, roadmap, tasks, versions, type RoadmapItem, type Task, type Version } from './dev.repo';
 
 const log = childLogger('dev');

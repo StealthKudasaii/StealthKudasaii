@@ -28,7 +28,7 @@ import { deferEphemeral, ephemeral, fail, openModal, requireFeature } from '../.
 import { brandEmbed, warnEmbed } from '../../bot/ui/embeds';
 import { discordTs, parseDate, toFrInput } from '../../core/time';
 import { progressBar, splitLines, truncate } from '../../core/text';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { featuresOf, roadmap, tasks, versions } from './dev.repo';
 import {
   deleteTask,

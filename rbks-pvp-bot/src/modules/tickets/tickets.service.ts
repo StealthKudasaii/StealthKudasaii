@@ -24,7 +24,7 @@ import { hitCooldown, rateLimit, resetCooldown, tryLock } from '../../core/guard
 import { discordTs } from '../../core/time';
 import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 import { reasons, tickets, type Ticket } from './tickets.repo';
 import { fetchAllMessages, renderTranscriptHtml, toTranscriptMessages } from './transcript';
 

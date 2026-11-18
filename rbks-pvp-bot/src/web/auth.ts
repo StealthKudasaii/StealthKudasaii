@@ -4,7 +4,7 @@ import { env } from '../config/env';
 import { can } from '../core/permissions';
 import { tryGetGuild } from '../bot/client';
 import { childLogger } from '../core/logger';
-import { audit } from '../modules/logs/audit';
+import { audit } from '../modules/audit/audit';
 import { verifyCsrf } from './middleware';
 
 const log = childLogger('web-auth');

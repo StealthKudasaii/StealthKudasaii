@@ -6,7 +6,7 @@ import { roleId } from '../../core/resources';
 import { discordTs } from '../../core/time';
 import { childLogger } from '../../core/logger';
 import { brandEmbed } from '../ui/embeds';
-import { audit } from '../../modules/logs/audit';
+import { audit } from '../../modules/audit/audit';
 import { tickets } from '../../modules/tickets/tickets.repo';
 
 const log = childLogger('events');

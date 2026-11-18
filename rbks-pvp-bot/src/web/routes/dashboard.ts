@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { serverStats } from '../../modules/stats/stats.service';
-import { listLogs } from '../../modules/logs/audit';
+import { listLogs } from '../../modules/audit/audit';
 import { isBotReady, tryGetGuild, getClient } from '../../bot/client';
 import { can } from '../../core/permissions';
 import { listResources } from '../../core/resources';

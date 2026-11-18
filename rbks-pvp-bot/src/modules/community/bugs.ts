@@ -25,7 +25,7 @@ import { hitCooldown } from '../../core/guards';
 import { discordTs } from '../../core/time';
 import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
-import { audit } from '../logs/audit';
+import { audit } from '../audit/audit';
 
 const log = childLogger('bugs');
 
