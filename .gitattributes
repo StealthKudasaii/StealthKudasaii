@@ -1,2 +1,4 @@
 *.bat text eol=crlf
 *.sh text eol=lf
+# Installateur telecharge tel quel depuis GitHub : garder les fins de ligne Windows.
+INSTALLER-RBKS-PVP.bat -text
