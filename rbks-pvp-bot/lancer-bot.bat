@@ -70,26 +70,23 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM --- 5. Lancement avec redemarrage automatique ---
-:loop
+REM --- 5. Lancement, redemarrage automatique et mises a jour depuis GitHub ---
 echo.
 echo Demarrage du bot... ^(ferme cette fenetre ou Ctrl+C pour l'arreter^)
+echo Si ce dossier vient d'un "git clone", le bot se met a jour tout seul a chaque push sur GitHub.
 echo.
-node dist\index.js
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0deploy\windows\rbks-vps.ps1"
 set CODE=%errorlevel%
+if "%CODE%"=="3" (
+  echo.
+  echo Le bot tourne deja en arriere-plan ^(demarrage automatique installe^). Rien a faire.
+  pause
+  exit /b 0
+)
 if "%CODE%"=="2" (
   echo.
   echo [ERREUR] Le bot ne peut pas demarrer : lis le message ci-dessus ^(token, .env, intents...^).
   echo Corrige le probleme puis relance ce fichier.
-  pause
-  exit /b 2
 )
-if "%CODE%"=="0" (
-  echo Le bot a ete arrete.
-  pause
-  exit /b 0
-)
-echo.
-echo Le bot s'est arrete ^(code %CODE%^). Redemarrage dans 15 secondes ^(ferme la fenetre pour annuler^)...
-timeout /t 15
-goto loop
+pause
+exit /b %CODE%

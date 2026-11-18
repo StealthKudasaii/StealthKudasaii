@@ -17,7 +17,48 @@ WEB_HOST=127.0.0.1     # le panel n'écoute qu'en local, le reverse proxy l'expo
 
 Ajoute `https://panel.ton-domaine.fr/auth/callback` dans les redirects OAuth2 ([OAUTH2.md](OAUTH2.md)).
 
-## Méthode recommandée — installation en une commande + mise à jour automatique
+## VPS Windows (Windows Server) — mise à jour automatique
+
+Si ton VPS est sous Windows (bureau à distance, invite de commandes `C:\Users\...`), les commandes Linux (`sudo`, `apt`) n’existent pas. Utilise cette méthode.
+
+### 1. Installer Git et Node.js (une seule fois)
+
+Dans le navigateur **du VPS**, télécharge et installe (bouton « Next » partout, options par défaut) :
+
+- **Git** : <https://git-scm.com/download/win> (le téléchargement démarre tout seul)
+- **Node.js LTS** : <https://nodejs.org/fr/download> → « Windows Installer (.msi) »
+
+Ferme puis rouvre l’invite de commandes après les installations.
+
+### 2. Télécharger le bot
+
+Dans l’invite de commandes (`cmd`) :
+
+```bat
+cd C:\
+git clone https://github.com/StealthKudasaii/StealthKudasaii.git
+cd C:\StealthKudasaii\rbks-pvp-bot
+lancer-bot.bat
+```
+
+Utilise `git clone` et non le téléchargement ZIP : sans Git, les mises à jour automatiques ne peuvent pas fonctionner.
+
+### 3. Remplir `.env`
+
+Au premier lancement, `lancer-bot.bat` installe tout puis ouvre `.env` dans le Bloc-notes. Remplis `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` et `GUILD_ID`, enregistre, puis relance `lancer-bot.bat`. Le bot démarre dans la fenêtre.
+
+À partir de là, **chaque push sur `main` est appliqué en environ 1 minute**, avec les mêmes garde-fous que sous Linux (compilation à côté, retour automatique à la version précédente si le bot ne se reconnecte pas).
+
+### 4. Faire tourner le bot en permanence (recommandé)
+
+La fenêtre doit rester ouverte, ce qui est fragile (redémarrage du VPS, fermeture par erreur). Pour que le bot tourne en arrière-plan et démarre avec Windows :
+
+1. Ferme la fenêtre de `lancer-bot.bat`.
+2. Ouvre le dossier `rbks-pvp-bot\deploy\windows`, fais un **clic droit sur `demarrage-auto.bat` → Exécuter en tant qu’administrateur**, puis choisis `1`.
+
+Le bot tourne alors sous forme de tâche planifiée « RBKS PVP Bot » (visible dans le Planificateur de tâches), sans fenêtre, et continue de se mettre à jour tout seul. Journaux : `data\vps.log` (mises à jour), `data\bot.log` et `data\bot-error.log` (bot). Pour l’arrêter : même fichier, choix `2`.
+
+## Méthode recommandée (VPS Linux) — installation en une commande + mise à jour automatique
 
 Le bot tourne comme un service (démarre avec le VPS, redémarre s’il plante) et **se met à jour tout seul à chaque push sur GitHub** : plus besoin de te connecter au VPS pour réinstaller.
 
