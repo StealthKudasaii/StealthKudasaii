@@ -1,0 +1,6 @@
+<select name="<%= name %>">
+  <option value="">— <%= locals.emptyLabel || 'aucun' %> —</option>
+  <% let lastParent = undefined; for (const c of channels) { if (c.parent !== lastParent) { if (lastParent !== undefined) { %></optgroup><% } %><optgroup label="<%= c.parent || 'Sans catégorie' %>"><% lastParent = c.parent; } %>
+    <option value="<%= c.id %>" <%= selected === c.id ? 'selected' : '' %>>#<%= c.name %></option>
+  <% } if (lastParent !== undefined) { %></optgroup><% } %>
+</select>

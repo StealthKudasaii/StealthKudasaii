@@ -1,0 +1,81 @@
+<%- include('partials/head') %>
+<p><a href="/forms">← Formulaires</a></p>
+<div class="card">
+  <h2><span><%= f.title %> <span class="badge"><%= state %></span></span>
+    <span class="row">
+      <a class="btn btn-sm" href="/applications?form=<%= f.id %>">📥 Candidatures</a>
+    </span>
+  </h2>
+  <div class="pre muted"><%= summary.replace(/\*\*/g, '') %></div>
+  <div class="actions">
+    <% const op = (name, label, cls, confirm) => `<form method="post" action="/forms/${f.id}/status" class="inline"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="op" value="${name}"><button class="btn-sm ${cls}" type="submit" ${confirm ? `data-confirm="${confirm}"` : ''}>${label}</button></form>`; %>
+    <%- op('publish', f.message_id ? '🔄 Mettre à jour la publication' : '🚀 Publier sur Discord', 'btn-primary') %>
+    <% if (f.status === 'open') { %><%- op('close', '🔒 Fermer les candidatures', '') %><% } else { %><%- op('open', '🔓 Ouvrir les candidatures', 'btn-ok') %><% } %>
+    <% if (f.message_id) { %><%- op('unpublish', '🙈 Retirer le message public', '', 'Retirer le message public du formulaire ?') %><% } %>
+  </div>
+</div>
+<div class="card">
+  <h2>⚙️ Informations et paramètres</h2>
+  <form method="post" action="/forms/<%= f.id %>">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="grid grid-2">
+      <div><label>Nom interne</label><input type="text" name="name" maxlength="40" value="<%= f.name %>" required></div>
+      <div><label>Titre</label><input type="text" name="title" maxlength="200" value="<%= f.title %>" required></div>
+    </div>
+    <label>Description</label><textarea name="description" maxlength="2000" rows="4"><%= f.description %></textarea>
+    <div class="grid grid-2">
+      <div><label>Texte du bouton</label><input type="text" name="button" maxlength="80" value="<%= f.button_label %>"></div>
+      <div><label>Bannière (URL d’image)</label><input type="url" name="banner" value="<%= f.banner_url || '' %>" placeholder="https://…"></div>
+      <div><label>Salon de publication</label><%- include('partials/channel-select', { name: 'publish', selected: f.publish_channel_id }) %></div>
+      <div><label>Salon privé de réception</label><%- include('partials/channel-select', { name: 'review', selected: f.review_channel_id }) %></div>
+      <div><label>Rôles examinateurs (en plus de « Examiner les candidatures »)</label><%- include('partials/role-select', { name: 'reviewers', selected: reviewers, roles, multiple: true }) %></div>
+      <div><label>Rôle attribué après acceptation</label><%- include('partials/role-select', { name: 'accepted', selected: f.accepted_role_id, roles }) %>
+        <label>Nombre maximal de candidatures (vide = illimité)</label><input type="number" name="max" min="1" value="<%= f.max_applications || '' %>">
+        <label>Délai avant nouvelle candidature après un refus (jours)</label><input type="number" name="reapply" min="0" max="365" value="<%= f.reapply_days %>">
+      </div>
+      <div><label>Ouverture (facultatif)</label><input type="datetime-local" name="opens" value="<%= toInputValue(f.opens_at) %>"></div>
+      <div><label>Clôture (facultatif)</label><input type="datetime-local" name="closes" value="<%= toInputValue(f.closes_at) %>"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="dm" <%= f.dm_on_decision ? 'checked' : '' %>> Prévenir le candidat en MP lors de la décision</label>
+    <div class="actions"><button class="btn-primary" type="submit">Enregistrer</button></div>
+  </form>
+</div>
+<div class="card" id="questions">
+  <h2>❓ Questions (<%= qs.length %>/<%= maxQuestions %>) <span class="muted" style="font-size:13px"><%= pageCount %> étape(s) dans Discord (5 questions max par fenêtre)</span></h2>
+  <% if (!qs.length) { %>
+    <p class="muted">Aucune question.</p>
+    <form method="post" action="/forms/<%= f.id %>/template"><input type="hidden" name="_csrf" value="<%= csrf %>"><button type="submit">📋 Utiliser le modèle bêta</button></form>
+  <% } %>
+  <% qs.forEach((q, idx) => { %>
+  <details>
+    <summary><span><%= idx + 1 %>. <%= C.QUESTION_TYPES[q.type].emoji %> <%= q.label %><%= q.required ? ' *' : '' %></span>
+      <span class="row">
+        <form method="post" action="/forms/<%= f.id %>/questions/<%= q.id %>" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-sm" name="op" value="up" type="submit" <%= idx === 0 ? 'disabled' : '' %>>⬆️</button><button class="btn-sm" name="op" value="down" type="submit" <%= idx === qs.length - 1 ? 'disabled' : '' %>>⬇️</button></form>
+      </span>
+    </summary>
+    <form method="post" action="/forms/<%= f.id %>/questions/<%= q.id %>">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <%- include('partials/question-fields', { q }) %>
+      <div class="actions"><button class="btn-primary btn-sm" name="op" value="save" type="submit">Enregistrer</button><button class="btn-danger btn-sm" name="op" value="delete" type="submit" data-confirm="Supprimer cette question ? Les candidatures reçues gardent leurs réponses.">Supprimer</button></div>
+    </form>
+  </details>
+  <% }) %>
+  <% if (qs.length < maxQuestions) { %>
+  <h3 style="margin-top:16px">Ajouter une question</h3>
+  <form method="post" action="/forms/<%= f.id %>/questions">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <%- include('partials/question-fields', { q: null }) %>
+    <div class="actions"><button type="submit">➕ Ajouter</button></div>
+  </form>
+  <% } %>
+</div>
+<div class="card">
+  <h2>🗑️ Zone dangereuse</h2>
+  <form method="post" action="/forms/<%= f.id %>/status">
+    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="op" value="delete">
+    <label>Recopie le nom « <%= f.name %> » pour supprimer définitivement le formulaire, son message et ses candidatures</label>
+    <input type="text" name="confirm" autocomplete="off">
+    <div class="actions"><button class="btn-danger" type="submit">Supprimer le formulaire</button></div>
+  </form>
+</div>
+<%- include('partials/foot') %>

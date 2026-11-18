@@ -1,0 +1,46 @@
+<%- include('partials/head') %>
+<div class="card">
+  <h2>🗺️ Publication <span class="row">
+    <form method="post" action="/dev/roadmap/publish" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-primary btn-sm" type="submit">Mettre à jour sur Discord</button></form>
+    <form method="post" action="/dev/roadmap/publish" class="inline" data-confirm="Supprimer et republier tous les messages de la roadmap, dans l’ordre ?"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="reset" value="1"><button class="btn-sm" type="submit">Republier dans l’ordre</button></form>
+  </span></h2>
+  <p class="muted">Publiée dans <%= channel ? 'le salon configuré (par défaut #release)' : 'aucun salon : lance /setup installer' %>. Chaque modification met à jour les messages existants automatiquement.</p>
+</div>
+<% for (const c of categories) { const avg = c.items.length ? Math.round(c.items.reduce((n, i) => n + i.progress, 0) / c.items.length) : 0; %>
+<div class="card">
+  <h2><span><%= c.emoji || '📁' %> <%= c.name %> <span class="muted" style="font-size:14px"><%= avg %>%</span></span>
+    <details style="margin:0;padding:6px 10px"><summary class="muted" style="font-size:13px">Modifier la catégorie</summary>
+      <form method="post" action="/dev/roadmap/categories">
+        <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="id" value="<%= c.id %>">
+        <div class="row"><input type="text" name="emoji" maxlength="10" value="<%= c.emoji || '' %>" style="width:70px"><input type="text" name="name" maxlength="80" value="<%= c.name %>" style="width:220px"><input type="number" name="position" value="<%= c.position %>" style="width:80px" title="Position"></div>
+        <div class="actions"><button class="btn-sm btn-primary" type="submit">Enregistrer</button><button class="btn-sm btn-danger" name="delete" value="1" type="submit" data-confirm="Supprimer la catégorie et toutes ses fonctionnalités ?">Supprimer</button></div>
+      </form>
+    </details>
+  </h2>
+  <% for (const it of c.items) { %>
+  <details>
+    <summary><span><%= C.ROADMAP_STATUS[it.status].emoji %> <%= it.title %></span><span class="row"><span class="progress"><span style="width:<%= it.progress %>%"></span></span><span class="muted"><%= it.progress %>%</span><%- badge(C.ROADMAP_STATUS, it.status) %></span></summary>
+    <form method="post" action="/dev/roadmap/items">
+      <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="id" value="<%= it.id %>">
+      <%- include('partials/roadmap-fields', { it, categories, catId: c.id }) %>
+      <div class="actions"><button class="btn-primary btn-sm" type="submit">Enregistrer</button><button class="btn-danger btn-sm" name="delete" value="1" type="submit" data-confirm="Retirer cette fonctionnalité ?">Retirer</button></div>
+    </form>
+  </details>
+  <% } %>
+  <details><summary class="muted">➕ Ajouter une fonctionnalité</summary>
+    <form method="post" action="/dev/roadmap/items">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <%- include('partials/roadmap-fields', { it: null, categories, catId: c.id }) %>
+      <div class="actions"><button class="btn-primary btn-sm" type="submit">Ajouter</button></div>
+    </form>
+  </details>
+</div>
+<% } %>
+<div class="card">
+  <h2>➕ Nouvelle catégorie</h2>
+  <form method="post" action="/dev/roadmap/categories" class="row">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <input type="text" name="emoji" maxlength="10" placeholder="⚔️" style="width:70px"><input type="text" name="name" maxlength="80" placeholder="Nom" required style="width:260px"><button type="submit">Ajouter</button>
+  </form>
+</div>
+<%- include('partials/foot') %>

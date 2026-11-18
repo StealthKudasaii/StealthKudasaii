@@ -1,0 +1,35 @@
+<%- include('partials/head') %>
+<div class="card">
+  <h2>🎮 Sessions</h2>
+  <% if (!list.length) { %><div class="empty">Aucune session.</div><% } %>
+  <% for (const s of list) { const reg = s.participants.filter(p => p.status === 'registered'); const wait = s.participants.filter(p => p.status === 'waitlist'); %>
+  <details>
+    <summary><span>n°<%= s.id %> <b><%= s.name %></b> <span class="muted">— <%= fmt(s.starts_at) %></span></span><span class="row"><span class="badge"><%= reg.length %>/<%= s.slots %></span><%- badge(C.SESSION_STATUS, s.status) %></span></summary>
+    <% if (s.description) { %><div class="answer pre"><%= s.description %></div><% } %>
+    <p class="muted">Durée : <%= s.duration_minutes ? s.duration_minutes + ' min' : '—' %> • Rôle requis : <%= s.role_id ? (roles.find(r => r.id === s.role_id) || {}).name || s.role_id : 'aucun' %></p>
+    <p><b>Inscrits :</b> <%= reg.map(p => memberName(p.user_id)).join(', ') || '—' %></p>
+    <% if (wait.length) { %><p><b>Liste d’attente :</b> <%= wait.map(p => memberName(p.user_id)).join(', ') %></p><% } %>
+    <% if (s.status === 'scheduled' || s.status === 'live') { %>
+    <form method="post" action="/sessions" data-confirm="Annuler cette session ? Les inscrits seront prévenus."><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="cancel" value="<%= s.id %>"><button class="btn-danger btn-sm" type="submit">Annuler la session</button></form>
+    <% } %>
+  </details>
+  <% } %>
+</div>
+<div class="card">
+  <h2>➕ Planifier une session</h2>
+  <form method="post" action="/sessions">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="grid grid-3">
+      <div><label>Nom</label><input type="text" name="name" maxlength="100" required></div>
+      <div><label>Date et heure</label><input type="datetime-local" name="starts_at" required></div>
+      <div><label>Places</label><input type="number" name="slots" min="1" max="500" value="10" required></div>
+      <div><label>Durée (minutes, facultatif)</label><input type="number" name="duration" min="5" max="1440"></div>
+      <div><label>Rôle autorisé</label><%- include('partials/role-select', { name: 'role', selected: null, roles }) %></div>
+      <div><label>Salon de publication</label><%- include('partials/channel-select', { name: 'channel', selected: defaultChannel }) %></div>
+    </div>
+    <label>Description</label><textarea name="description" maxlength="1500"></textarea>
+    <label class="check"><input type="checkbox" name="ping"> Mentionner le rôle « Sessions de test »</label>
+    <div class="actions"><button class="btn-primary" type="submit">Publier sur Discord</button></div>
+  </form>
+</div>
+<%- include('partials/foot') %>

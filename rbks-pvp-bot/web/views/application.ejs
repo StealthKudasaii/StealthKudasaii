@@ -1,0 +1,52 @@
+<%- include('partials/head') %>
+<p><a href="/applications<%= f ? '?form=' + f.id : '' %>">← Candidatures</a></p>
+<div class="grid grid-2">
+  <div>
+    <div class="card">
+      <h2>Candidature n°<%= a.id %> <%- badge(C.APPLICATION_STATUS, a.status) %></h2>
+      <div class="row" style="margin-bottom:10px">
+        <% if (member) { %><img src="<%= member.avatar %>" alt="" style="width:56px;height:56px;border-radius:50%"><% } %>
+        <div><b><%= a.user_tag || a.user_id %></b><div class="muted">ID <%= a.user_id %></div>
+          <% if (member) { %><div class="muted">Compte créé le <%= fmt(member.created, false) %> • sur le serveur depuis le <%= fmt(member.joined, false) %></div><% } else { %><div class="badge warn">N’est plus sur le serveur</div><% } %></div>
+      </div>
+      <p><b>Formulaire :</b> <%= f ? f.title : 'supprimé' %> • <b>Soumise le :</b> <%= fmt(a.created_at) %></p>
+      <p><b>Pseudo Roblox :</b> <% if (a.roblox_username) { %><% if (a.roblox_id) { %><a href="https://www.roblox.com/users/<%= a.roblox_id %>/profile" target="_blank" rel="noopener"><%= a.roblox_username %></a><% } else { %><%= a.roblox_username %><% } %><% } else { %>—<% } %></p>
+      <% for (const ans of answers) { %><div class="answer"><b><%= ans.label %></b><div class="pre"><%= ans.text %></div></div><% } %>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>⚖️ Décision</h2>
+      <% if (a.status === 'accepted' || a.status === 'refused') { %>
+        <p><%- badge(C.APPLICATION_STATUS, a.status) %> par <b><%= memberName(a.decided_by) %></b> le <%= fmt(a.decided_at) %></p>
+        <% if (a.decision_reason) { %><div class="answer pre"><%= a.decision_reason %></div><% } %>
+      <% } else { %>
+      <form method="post" action="/applications/<%= a.id %>/decision">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label>Motif (facultatif, communiqué en cas de refus)</label><textarea name="reason" maxlength="800"></textarea>
+        <label class="check"><input type="checkbox" name="notify" checked> Prévenir le candidat en MP</label>
+        <div class="actions">
+          <button class="btn-ok" name="decision" value="accepted" type="submit" data-confirm="Accepter cette candidature ? Le rôle sera attribué.">✅ Accepter</button>
+          <button class="btn-danger" name="decision" value="refused" type="submit" data-confirm="Refuser cette candidature ?">❌ Refuser</button>
+          <% if (a.status !== 'on_hold') { %><button name="decision" value="on_hold" type="submit">⏸️ Mettre en attente</button><% } %>
+        </div>
+      </form>
+      <% } %>
+    </div>
+    <div class="card">
+      <h2>📝 Notes internes</h2>
+      <% for (const n of notes) { %><div class="answer"><b><%= memberName(n.author_id) %> — <span class="muted"><%= fmt(n.created_at) %></span></b><div class="pre"><%= n.content %></div></div><% } %>
+      <form method="post" action="/applications/<%= a.id %>/note"><input type="hidden" name="_csrf" value="<%= csrf %>"><textarea name="content" maxlength="1500"></textarea><div class="actions"><button type="submit">Ajouter</button></div></form>
+    </div>
+    <div class="card">
+      <h2>📜 Historique</h2>
+      <ul class="timeline">
+        <% const labels = { submitted: 'Soumise', accepted: 'Acceptée', refused: 'Refusée', on_hold: 'Mise en attente', note: 'Note ajoutée' }; for (const e of events) { %>
+        <li><b><%= labels[e.action] || e.action %></b> <span class="muted">— <%= fmt(e.created_at) %><%= e.actor_id ? ' par ' + memberName(e.actor_id) : '' %></span><% if (e.details) { %><div class="pre"><%= e.details %></div><% } %></li>
+        <% } %>
+      </ul>
+      <% if (others.length) { %><h3>Autres candidatures de ce membre</h3><ul><% for (const o of others) { %><li><a href="/applications/<%= o.id %>">n°<%= o.id %></a> — <%- badge(C.APPLICATION_STATUS, o.status) %></li><% } %></ul><% } %>
+    </div>
+  </div>
+</div>
+<%- include('partials/foot') %>

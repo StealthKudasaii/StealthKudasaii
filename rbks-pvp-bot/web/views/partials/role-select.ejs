@@ -1,0 +1,8 @@
+<% const sel = new Set(Array.isArray(selected) ? selected : (selected ? [selected] : [])); %>
+<select name="<%= name %>" <%= locals.multiple ? 'multiple' : '' %>>
+  <% if (!locals.multiple) { %><option value="">— aucun —</option><% } %>
+  <% for (const r of roles) { if (r.managed) continue; %>
+    <option value="<%= r.id %>" <%= sel.has(r.id) ? 'selected' : '' %>><%= r.name %></option>
+  <% } %>
+</select>
+<% if (locals.multiple) { %><div class="hint">Ctrl/Cmd + clic pour sélectionner plusieurs rôles.</div><% } %>

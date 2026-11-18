@@ -1,0 +1,26 @@
+<%- include('partials/head') %>
+<div class="tabs">
+  <a href="/suggestions" class="<%= !status ? 'active' : '' %>">Toutes</a>
+  <% for (const [k, s] of Object.entries(C.SUGGESTION_STATUS)) { %><a href="/suggestions?status=<%= k %>" class="<%= status === k ? 'active' : '' %>"><%= s.emoji %> <%= s.label %></a><% } %>
+</div>
+<div class="card">
+  <h2>💡 Suggestions <span class="muted" style="font-size:14px"><%= total %> résultat(s)</span></h2>
+  <% if (!rows.length) { %><div class="empty">Aucune suggestion.</div><% } %>
+  <% for (const s of rows) { %>
+  <details>
+    <summary><span>#<%= s.id %> <b><%= s.title %></b> <span class="muted">— <%= memberName(s.user_id) %></span></span><span class="row"><span class="badge ok">👍 <%= s.up %></span><span class="badge danger">👎 <%= s.down %></span><%- badge(C.SUGGESTION_STATUS, s.status) %></span></summary>
+    <div class="answer pre"><%= s.content %></div>
+    <form method="post" action="/suggestions/<%= s.id %>">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="grid grid-2">
+        <div><label>Statut</label><select name="status"><% for (const [k, st] of Object.entries(C.SUGGESTION_STATUS)) { %><option value="<%= k %>" <%= s.status === k ? 'selected' : '' %>><%= st.emoji %> <%= st.label %></option><% } %></select></div>
+        <div class="muted" style="align-self:end">Proposée le <%= fmt(s.created_at) %></div>
+      </div>
+      <label>Réponse du staff (affichée sous la suggestion)</label><textarea name="response" maxlength="900"><%= s.staff_response || '' %></textarea>
+      <div class="actions"><button class="btn-primary btn-sm" type="submit">Enregistrer et mettre à jour Discord</button></div>
+    </form>
+  </details>
+  <% } %>
+  <%- include('partials/pager', { query: { status: status || '' } }) %>
+</div>
+<%- include('partials/foot') %>

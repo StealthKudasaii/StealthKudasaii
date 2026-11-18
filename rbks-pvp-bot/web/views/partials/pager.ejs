@@ -1,0 +1,7 @@
+<% const pages = Math.max(1, Math.ceil(total / p.limit)); if (pages > 1) { const q = (n) => { const u = new URLSearchParams(Object.assign({}, query || {}, { page: n })); return '?' + u.toString(); }; %>
+<div class="pager">
+  <% if (p.page > 1) { %><a class="btn btn-sm" href="<%= q(p.page - 1) %>">← Précédent</a><% } %>
+  <span class="muted">Page <%= p.page %> / <%= pages %></span>
+  <% if (p.page < pages) { %><a class="btn btn-sm" href="<%= q(p.page + 1) %>">Suivant →</a><% } %>
+</div>
+<% } %>

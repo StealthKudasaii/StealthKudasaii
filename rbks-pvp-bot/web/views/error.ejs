@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> — Panel RBKS PVP</title>
+<link rel="stylesheet" href="/public/style.css">
+</head>
+<body>
+<div class="login">
+  <div class="card">
+    <div class="logo-mark"><%= locals.code || '!' %></div>
+    <h1><%= title %></h1>
+    <p class="muted"><%= message %></p>
+    <p class="actions" style="justify-content:center"><a class="btn" href="/">Retour au panel</a><% if (locals.code === 403) { %><a class="btn" href="/login">Se reconnecter</a><% } %></p>
+  </div>
+</div>
+</body>
+</html>

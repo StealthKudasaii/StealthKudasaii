@@ -1,0 +1,23 @@
+<%- include('partials/head') %>
+<p class="muted">Chaque version est publiée dans <b>#release</b> et mise à jour sur place à chaque modification. Préfixe une fonctionnalité par <code>[x]</code> pour la marquer terminée.</p>
+<% const vform = (v) => { v = v || {}; return v; }; %>
+<% for (const v of list) { %>
+<details class="card">
+  <summary><span><%= C.VERSION_STATUS[v.status].emoji %> <b><%= v.version %></b> — <%= v.name %></span>
+    <span class="row"><%- badge(C.VERSION_STATUS, v.status) %><% if (v.progress != null) { %><span class="progress"><span style="width:<%= v.progress %>%"></span></span><span class="muted"><%= v.progress %>%</span><% } %></span></summary>
+  <form method="post" action="/dev/versions">
+    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="id" value="<%= v.id %>">
+    <%- include('partials/version-fields', { v }) %>
+    <div class="actions"><button class="btn-primary" type="submit">Enregistrer et publier</button><button class="btn-danger" name="delete" value="1" type="submit" data-confirm="Supprimer cette version et son message ?">Supprimer</button></div>
+  </form>
+</details>
+<% } %>
+<div class="card">
+  <h2>➕ Nouvelle version</h2>
+  <form method="post" action="/dev/versions">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <%- include('partials/version-fields', { v: null }) %>
+    <div class="actions"><button class="btn-primary" type="submit">Créer et publier</button></div>
+  </form>
+</div>
+<%- include('partials/foot') %>

@@ -1,0 +1,11 @@
+<% const it = locals.it || {}; %>
+<div class="grid grid-3">
+  <div><label>Titre</label><input type="text" name="title" maxlength="100" value="<%= it.title || '' %>" required></div>
+  <div><label>Catégorie</label><select name="category_id"><% for (const c of categories) { %><option value="<%= c.id %>" <%= (it.category_id || catId) === c.id ? 'selected' : '' %>><%= c.emoji || '' %> <%= c.name %></option><% } %></select></div>
+  <div><label>Statut</label><select name="status"><% for (const [k, s] of Object.entries(C.ROADMAP_STATUS)) { %><option value="<%= k %>" <%= (it.status || 'upcoming') === k ? 'selected' : '' %>><%= s.emoji %> <%= s.label %></option><% } %></select></div>
+  <div><label>Progression %</label><input type="number" name="progress" min="0" max="100" value="<%= it.progress ?? 0 %>"></div>
+  <div><label>Date prévisionnelle</label><input type="datetime-local" name="target_date" value="<%= toInputValue(it.target_date) %>"></div>
+  <% if (it.id) { %><div><label>Position</label><input type="number" name="position" value="<%= it.position %>"></div><% } %>
+</div>
+<label>Description</label><textarea name="description" maxlength="500"><%= it.description || '' %></textarea>
+<div class="hint">100 % passe automatiquement en « Terminé ».</div>

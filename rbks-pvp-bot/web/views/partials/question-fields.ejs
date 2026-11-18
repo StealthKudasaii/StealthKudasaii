@@ -1,0 +1,14 @@
+<% const q = locals.q || {}; const type = q.type || 'short'; %>
+<div class="grid grid-2">
+  <div><label>Intitulé (45 caractères max, limite Discord)</label><input type="text" name="label" maxlength="45" value="<%= q.label || '' %>" required></div>
+  <div><label>Type</label>
+    <select name="type" data-question-type>
+      <% for (const [k, t] of Object.entries(C.QUESTION_TYPES)) { %><option value="<%= k %>" <%= type === k ? 'selected' : '' %>><%= t.emoji %> <%= t.label %></option><% } %>
+    </select>
+  </div>
+</div>
+<label>Description (100 caractères max)</label><input type="text" name="description" maxlength="100" value="<%= q.description || '' %>">
+<div data-for="single multi"><label>Choix possibles (un par ligne, 2 à 25)</label><textarea name="choices" rows="4"><%= q.choicesText || '' %></textarea></div>
+<div data-for="number"><label>Plage autorisée (min-max, facultatif)</label><input type="text" name="range" placeholder="0-100" value="<%= (q.min_value != null || q.max_value != null) ? `${q.min_value ?? ''}-${q.max_value ?? ''}` : '' %>"></div>
+<label>Texte indicatif (facultatif)</label><input type="text" name="placeholder" maxlength="100" value="<%= q.placeholder || '' %>">
+<label class="check"><input type="checkbox" name="required" <%= q.required === 0 ? '' : 'checked' %>> Réponse obligatoire</label>

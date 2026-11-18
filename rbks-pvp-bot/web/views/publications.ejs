@@ -1,0 +1,37 @@
+<%- include('partials/head') %>
+<% const e = edit || {}; %>
+<div class="card">
+  <h2><%= edit ? '✏️ Modifier : ' + edit.title : '📢 Nouvelle publication' %><% if (edit) { %><a class="btn btn-sm" href="/publications">Annuler</a><% } %></h2>
+  <form method="post" action="/publications">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <% if (edit) { %><input type="hidden" name="id" value="<%= edit.id %>"><% } %>
+    <div class="grid grid-3">
+      <div><label>Type (définit le salon)</label><select name="kind" data-publication-kind><% for (const [k, x] of Object.entries(C.PUBLICATION_KINDS)) { %><option value="<%= k %>" <%= e.kind === k ? 'selected' : '' %>><%= x.emoji %> <%= x.label %></option><% } %></select></div>
+      <div><label>Numéro de version</label><input type="text" name="version" maxlength="20" value="<%= e.version || '' %>" placeholder="V0.2.1"></div>
+      <div><label>Date de publication</label><input type="datetime-local" name="publish_date" value="<%= toInputValue(e.publish_date) %>"></div>
+    </div>
+    <label>Titre</label><input type="text" name="title" maxlength="200" value="<%= e.title || '' %>" required>
+    <label>Description</label><textarea name="description" rows="5" maxlength="4000"><%= e.description || '' %></textarea>
+    <div class="grid grid-3" data-kind="patchnote">
+      <div><label>✨ Nouveautés (une par ligne)</label><textarea name="features" rows="5"><%= e.features || '' %></textarea></div>
+      <div><label>🛠️ Corrections</label><textarea name="fixes" rows="5"><%= e.fixes || '' %></textarea></div>
+      <div><label>⚖️ Équilibrage</label><textarea name="balance" rows="5"><%= e.balance || '' %></textarea></div>
+    </div>
+    <label>Image (URL, facultatif)</label><input type="url" name="image_url" value="<%= e.image_url && !e.image_url.includes('discordapp') ? e.image_url : '' %>" placeholder="https://…">
+    <div class="hint">Pour joindre directement un fichier image, utilise la commande Discord <code>/patchnote create</code> ou <code>/announcement create</code>.</div>
+    <% if (!edit) { %><label class="check"><input type="checkbox" name="ping"> Mentionner le rôle de notification correspondant</label><% } %>
+    <div class="actions"><button class="btn-primary" type="submit"><%= edit ? 'Mettre à jour sur Discord' : 'Publier sur Discord' %></button></div>
+  </form>
+</div>
+<div class="card">
+  <h2>🗂️ Historique</h2>
+  <% if (!list.length) { %><div class="empty">Aucune publication.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>Type</th><th>Titre</th><th>Version</th><th>Date</th><th>Auteur</th><th></th></tr>
+    <% for (const p of list) { %>
+    <tr><td><%= C.PUBLICATION_KINDS[p.kind].emoji %> <%= C.PUBLICATION_KINDS[p.kind].label %></td><td><%= p.title %></td><td><%= p.version || '—' %></td><td class="muted"><%= fmt(p.publish_date || p.created_at, false) %></td><td><%= memberName(p.author_id) %></td><td><a class="btn btn-sm" href="/publications?edit=<%= p.id %>">Modifier</a></td></tr>
+    <% } %>
+  </table></div>
+  <% } %>
+</div>
+<%- include('partials/foot') %>

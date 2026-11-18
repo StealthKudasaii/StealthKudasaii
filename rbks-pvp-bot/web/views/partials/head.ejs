@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> — Panel RBKS PVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Rajdhani:wght@600;700&display=swap">
+<link rel="stylesheet" href="/public/style.css">
+<script src="/public/app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="logo"><div class="logo-mark">RB</div><div><b>RBKS PVP</b><small>Panel de gestion</small></div></div>
+  <%
+    const nav = [
+      ['Général', [['/', '📊', 'Tableau de bord', null], ['/bot', '🤖', 'Bot', 'bot.manage'], ['/settings', '⚙️', 'Réglages', 'settings.manage'], ['/permissions', '🔐', 'Rôles & permissions', 'permissions'], ['/logs', '📜', 'Logs', 'logs.view']]],
+      ['Support', [['/tickets', '🎫', 'Tickets', 'tickets.handle'], ['/forms', '📋', 'Formulaires', 'whitelist.manage'], ['/applications', '📥', 'Candidatures', 'whitelist.review']]],
+      ['Développement', [['/dev/versions', '🚀', 'Versions', 'dev.manage'], ['/dev/tasks', '📝', 'Tâches', 'tasks.manage'], ['/dev/roadmap', '🗺️', 'Roadmap', 'dev.manage']]],
+      ['Communauté', [['/publications', '📢', 'Annonces & patch notes', 'publications.manage'], ['/suggestions', '💡', 'Suggestions', 'suggestions.manage'], ['/bugs', '🐞', 'Bugs', 'bugs.manage'], ['/sessions', '🎮', 'Sessions de test', 'testsessions.manage'], ['/polls', '🗳️', 'Sondages', 'polls.manage']]],
+    ];
+  %>
+  <nav class="nav">
+  <% for (const [group, items] of nav) { const visible = items.filter(i => !i[3] || can(i[3])); if (!visible.length) continue; %>
+    <div class="nav-group"><%= group %></div>
+    <% for (const [href, icon, label] of visible) { const active = href === '/' ? path === '/' : path.startsWith(href); %>
+      <a href="<%= href %>" class="<%= active ? 'active' : '' %>"><span><%= icon %></span><%= label %></a>
+    <% } %>
+  <% } %>
+  </nav>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div class="row"><button class="menu-toggle btn-sm" data-toggle-menu type="button">☰</button><h1><%= title %></h1></div>
+    <% if (user) { %>
+    <div class="user">
+      <% if (user.avatar) { %><img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64" alt=""><% } %>
+      <span><%= user.globalName || user.username %></span>
+      <form method="post" action="/logout" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-sm" type="submit">Déconnexion</button></form>
+    </div>
+    <% } %>
+  </div>
+  <% for (const f of flash) { %><div class="flash <%= f.type %>"><%= f.message %></div><% } %>

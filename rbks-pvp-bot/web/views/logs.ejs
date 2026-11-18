@@ -1,0 +1,18 @@
+<%- include('partials/head') %>
+<div class="tabs">
+  <a href="/logs" class="<%= !type ? 'active' : '' %>">Tous</a>
+  <% for (const [k, t] of Object.entries(types)) { %><a href="/logs?type=<%= k %>" class="<%= type === k ? 'active' : '' %>"><%= t.emoji %> <%= t.label %></a><% } %>
+</div>
+<div class="card">
+  <h2>📜 Journal <span class="muted" style="font-size:14px"><%= total %> événement(s)</span></h2>
+  <% if (!rows.length) { %><div class="empty">Aucun événement.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>Date</th><th>Type</th><th>Action</th><th>Événement</th><th>Par</th></tr>
+    <% for (const l of rows) { %>
+    <tr><td class="muted" style="white-space:nowrap"><%= fmt(l.created_at) %></td><td><%= (types[l.type] || {}).emoji || '' %> <%= (types[l.type] || {}).label || l.type %></td><td><code><%= l.action %></code></td><td><%= l.message.replace(/<[@#&!]+(\d+)>/g, (m, id) => '@' + memberName(id)).replace(/\*\*/g, '') %></td><td><%= memberName(l.actor_id) %></td></tr>
+    <% } %>
+  </table></div>
+  <%- include('partials/pager', { query: { type: type || '' } }) %>
+  <% } %>
+</div>
+<%- include('partials/foot') %>

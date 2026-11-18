@@ -1,0 +1,19 @@
+<%- include('partials/head') %>
+<div class="tabs">
+  <a href="/bugs" class="<%= status === 'open' ? 'active' : '' %>">📂 Ouverts</a>
+  <a href="/bugs?status=all" class="<%= status === 'all' ? 'active' : '' %>">Tous</a>
+  <% for (const [k, s] of Object.entries(C.BUG_STATUS)) { %><a href="/bugs?status=<%= k %>" class="<%= status === k ? 'active' : '' %>"><%= s.emoji %> <%= s.label %></a><% } %>
+</div>
+<div class="card">
+  <h2>🐞 Bugs <span class="muted" style="font-size:14px"><%= total %> résultat(s)</span></h2>
+  <% if (!rows.length) { %><div class="empty">Aucun bug. 🎉</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>N°</th><th>Titre</th><th>Plateforme</th><th>Signalé par</th><th>Pris en charge</th><th>Statut</th><th>Date</th><th></th></tr>
+    <% for (const b of rows) { %>
+    <tr><td>#<%= b.id %></td><td><%= b.title %></td><td><%= b.platform %></td><td><%= memberName(b.user_id) %></td><td><%= memberName(b.assignee_id) %></td><td><%- badge(C.BUG_STATUS, b.status) %></td><td class="muted"><%= fmt(b.created_at) %></td><td><a class="btn btn-sm" href="/bugs/<%= b.id %>">Ouvrir</a></td></tr>
+    <% } %>
+  </table></div>
+  <%- include('partials/pager', { query: { status } }) %>
+  <% } %>
+</div>
+<%- include('partials/foot') %>

@@ -1,0 +1,32 @@
+<%- include('partials/head') %>
+<div class="tabs">
+  <a href="/dev/tasks" class="<%= !status ? 'active' : '' %>">Toutes</a>
+  <% for (const [k, s] of Object.entries(C.TASK_STATUS)) { %><a href="/dev/tasks?status=<%= k %>" class="<%= status === k ? 'active' : '' %>"><%= s.emoji %> <%= s.label %> (<%= counts[k] || 0 %>)</a><% } %>
+</div>
+<div class="card">
+  <h2>📝 Tâches</h2>
+  <% if (!list.length) { %><div class="empty">Aucune tâche.</div><% } %>
+  <% for (const t of list) { const overdue = t.due_date && t.status !== 'done' && t.due_date < Date.now(); %>
+  <details>
+    <summary><span>#<%= t.id %> <%= C.TASK_PRIORITY[t.priority].emoji %> <b><%= t.title %></b> <span class="muted">— <%= t.category %><%= t.assignee_id ? ' • ' + memberName(t.assignee_id) : '' %></span></span>
+      <span class="row"><% if (t.due_date) { %><span class="badge <%= overdue ? 'danger' : '' %>">📅 <%= fmt(t.due_date, false) %></span><% } %><%- badge(C.TASK_STATUS, t.status) %>
+        <form method="post" action="/dev/tasks" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="id" value="<%= t.id %>"><input type="hidden" name="op" value="status">
+          <% if (t.status !== 'done') { %><button class="btn-sm btn-ok" name="status" value="done" type="submit">✅ Terminé</button><% } else { %><button class="btn-sm" name="status" value="todo" type="submit">↩️ Rouvrir</button><% } %>
+        </form></span></summary>
+    <form method="post" action="/dev/tasks">
+      <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="id" value="<%= t.id %>">
+      <%- include('partials/task-fields', { t }) %>
+      <div class="actions"><button class="btn-primary btn-sm" name="op" value="save" type="submit">Enregistrer</button><button class="btn-danger btn-sm" name="op" value="delete" type="submit" data-confirm="Supprimer cette tâche et son message ?">Supprimer</button></div>
+    </form>
+  </details>
+  <% } %>
+</div>
+<div class="card">
+  <h2>➕ Nouvelle tâche</h2>
+  <form method="post" action="/dev/tasks">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <%- include('partials/task-fields', { t: null }) %>
+    <div class="actions"><button class="btn-primary" type="submit">Créer et publier dans #to-do</button></div>
+  </form>
+</div>
+<%- include('partials/foot') %>

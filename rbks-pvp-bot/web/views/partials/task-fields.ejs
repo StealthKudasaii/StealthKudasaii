@@ -1,0 +1,11 @@
+<% const t = locals.t || {}; %>
+<div class="grid grid-3">
+  <div><label>Titre</label><input type="text" name="title" maxlength="100" value="<%= t.title || '' %>" required></div>
+  <div><label>Catégorie</label><input type="text" name="category" maxlength="50" list="task-categories" value="<%= t.category || 'Général' %>"></div>
+  <div><label>Priorité</label><select name="priority"><% for (const [k, p] of Object.entries(C.TASK_PRIORITY)) { %><option value="<%= k %>" <%= (t.priority || 'medium') === k ? 'selected' : '' %>><%= p.emoji %> <%= p.label %></option><% } %></select></div>
+  <% if (t.id) { %><div><label>Statut</label><select name="status"><% for (const [k, s] of Object.entries(C.TASK_STATUS)) { %><option value="<%= k %>" <%= t.status === k ? 'selected' : '' %>><%= s.emoji %> <%= s.label %></option><% } %></select></div><% } %>
+  <div><label>Responsable</label><select name="assignee"><option value="">— aucun —</option><% for (const m of members) { %><option value="<%= m.id %>" <%= t.assignee_id === m.id ? 'selected' : '' %>><%= m.name %></option><% } %></select></div>
+  <div><label>Date limite</label><input type="datetime-local" name="due_date" value="<%= toInputValue(t.due_date) %>"></div>
+</div>
+<label>Description</label><textarea name="description" maxlength="1500"><%= t.description || '' %></textarea>
+<datalist id="task-categories"><% for (const c of categories) { %><option value="<%= c %>"><% } %></datalist>

@@ -1,0 +1,61 @@
+<%- include('partials/head') %>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>🪪 Identité Discord</h2>
+    <% if (botUser) { %>
+    <div class="row" style="margin-bottom:10px"><img src="<%= botUser.avatar %>" alt="" style="width:72px;height:72px;border-radius:50%"><div><b><%= botUser.username %></b><div class="muted">ID <%= botUser.id %></div></div></div>
+    <% } else { %><p class="muted">Bot hors ligne : les modifications Discord sont indisponibles.</p><% } %>
+    <form method="post" action="/bot/username">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Nom du bot (global)</label>
+      <input type="text" name="username" maxlength="32" value="<%= botUser ? botUser.username : '' %>" required>
+      <div class="hint">Appliqué via l’API Discord. Discord limite ce changement à 2 fois par heure.</div>
+      <div class="actions"><button class="btn-primary" type="submit">Renommer</button></div>
+    </form>
+    <form method="post" action="/bot/nickname">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Surnom sur le serveur (facultatif)</label>
+      <input type="text" name="nickname" maxlength="32" value="<%= nickname %>">
+      <div class="actions"><button type="submit">Enregistrer le surnom</button></div>
+    </form>
+    <form method="post" action="/bot/avatar" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Avatar (PNG, JPG, GIF ou WEBP, 8 Mo max)</label>
+      <input type="file" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+      <label>…ou URL d’une image</label>
+      <input type="url" name="avatarUrl" placeholder="https://…">
+      <div class="actions"><button class="btn-primary" type="submit">Changer l’avatar</button></div>
+    </form>
+  </div>
+  <div>
+    <div class="card">
+      <h2>🟢 Statut et activité</h2>
+      <form method="post" action="/bot/presence">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label>Présence</label>
+        <select name="status">
+          <% for (const [v, l] of [['online','🟢 En ligne'],['idle','🌙 Absent'],['dnd','⛔ Ne pas déranger'],['invisible','⚫ Invisible']]) { %><option value="<%= v %>" <%= presence.status === v ? 'selected' : '' %>><%= l %></option><% } %>
+        </select>
+        <label>Type d’activité</label>
+        <select name="activityType">
+          <% for (const [v, l] of [['Playing','Joue à'],['Watching','Regarde'],['Listening','Écoute'],['Competing','Participe à'],['Custom','Statut personnalisé']]) { %><option value="<%= v %>" <%= presence.activityType === v ? 'selected' : '' %>><%= l %></option><% } %>
+        </select>
+        <label>Texte de l’activité</label>
+        <input type="text" name="activityText" maxlength="128" value="<%= presence.activityText %>">
+        <div class="actions"><button class="btn-primary" type="submit">Appliquer</button></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>🎨 Identité visuelle des messages</h2>
+      <form method="post" action="/bot/brand">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label>Nom affiché</label><input type="text" name="name" maxlength="60" value="<%= brand.name %>">
+        <label>Couleur principale des embeds</label><input type="color" name="color" value="<%= brand.color %>">
+        <label>Pied de page</label><input type="text" name="footer" maxlength="120" value="<%= brand.footer %>">
+        <label>Logo (URL, facultatif)</label><input type="url" name="logoUrl" value="<%= brand.logoUrl %>" placeholder="https://…">
+        <div class="actions"><button class="btn-primary" type="submit">Enregistrer</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+<%- include('partials/foot') %>

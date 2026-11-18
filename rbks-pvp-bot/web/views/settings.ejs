@@ -1,0 +1,64 @@
+<%- include('partials/head') %>
+<div class="card">
+  <h2>📌 Panneaux Discord
+    <form method="post" action="/settings/panels" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-primary btn-sm" type="submit">Publier / mettre à jour les panneaux</button></form>
+  </h2>
+  <p class="muted">Règlement, notifications, tickets, suggestions, bugs et roadmap. Les messages existants sont modifiés sur place, sans doublon.</p>
+</div>
+<div class="card">
+  <h2>💬 Salons utilisés par le bot</h2>
+  <p class="muted">Par défaut, les salons créés par <code>/setup installer</code>. Tu peux en réaffecter certains ici.</p>
+  <form method="post" action="/settings/channels">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="grid grid-2">
+      <% for (const c of channelRows) { %>
+      <div><label><%= c.name %><%= c.managed && c.current !== c.managed ? ' (réaffecté)' : '' %></label><%- include('partials/channel-select', { name: 'ch_' + c.key, selected: c.current, emptyLabel: c.managed ? 'salon de /setup' : 'aucun' }) %></div>
+      <% } %>
+    </div>
+    <div class="actions"><button class="btn-primary" type="submit">Enregistrer les salons</button></div>
+  </form>
+</div>
+<div class="card">
+  <h2>🔔 Rôles de notification et rôle Membre</h2>
+  <form method="post" action="/settings/roles">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="grid grid-3">
+      <% for (const n of notif) { %><div><label><%= n.emoji %> <%= n.label %></label><%- include('partials/role-select', { name: 'notif_' + n.key, selected: n.roleId, roles }) %></div><% } %>
+      <div><label>👤 Rôle donné à l’acceptation du règlement</label><%- include('partials/role-select', { name: 'memberRole', selected: memberRole, roles }) %></div>
+    </div>
+    <div class="actions"><button class="btn-primary" type="submit">Enregistrer les rôles</button></div>
+  </form>
+</div>
+<div class="card">
+  <h2>⚙️ Réglages généraux</h2>
+  <form method="post" action="/settings/general">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="grid grid-2">
+      <div>
+        <h3>Membres et règlement</h3>
+        <label class="check"><input type="checkbox" name="autorole" <%= s.autorole ? 'checked' : '' %>> Donner le rôle Membre automatiquement à l’arrivée (sinon via le bouton du règlement)</label>
+        <label>Titre du règlement</label><input type="text" name="rulesTitle" value="<%= s.rulesTitle %>">
+        <label>Texte du règlement (Markdown Discord)</label><textarea name="rulesText" rows="9"><%= s.rulesText %></textarea>
+      </div>
+      <div>
+        <h3>Communauté</h3>
+        <label class="check"><input type="checkbox" name="sugThread" <%= s.sugThread ? 'checked' : '' %>> Créer un fil de discussion sous chaque suggestion</label>
+        <label>Délai entre deux suggestions d’un même membre (secondes)</label><input type="number" name="sugCooldown" min="0" value="<%= s.sugCooldown %>">
+        <label>Délai entre deux signalements de bug (secondes)</label><input type="number" name="bugCooldown" min="0" value="<%= s.bugCooldown %>">
+        <label>Rappel avant une session de test (minutes)</label><input type="number" name="reminder" min="1" value="<%= s.reminder %>">
+        <h3 style="margin-top:16px">Logs envoyés sur Discord</h3>
+        <% for (const [k, t] of Object.entries(logTypes)) { %><label class="check"><input type="checkbox" name="log_<%= k %>" <%= logsEnabled[k] !== false ? 'checked' : '' %>> <%= t.emoji %> <%= t.label %></label><% } %>
+        <div class="hint">Tous les événements restent consultables dans la page Logs du panel.</div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn-primary" type="submit">Enregistrer</button></div>
+  </form>
+</div>
+<div class="card">
+  <h2>💾 Sauvegardes
+    <form method="post" action="/settings/backup" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-sm" type="submit">Sauvegarder maintenant</button></form>
+  </h2>
+  <p class="muted">Une sauvegarde automatique de la base est faite chaque jour dans <code>data/backups</code>.</p>
+  <% if (backups.length) { %><ul><% for (const b of backups) { %><li><code><%= b.name %></code> — <%= (b.size / 1024).toFixed(0) %> Ko — <%= fmt(b.date) %></li><% } %></ul><% } else { %><p class="muted">Aucune sauvegarde pour le moment.</p><% } %>
+</div>
+<%- include('partials/foot') %>

@@ -1,0 +1,50 @@
+<%- include('partials/head') %>
+<% if (!setupDone) { %>
+<div class="flash info">Le serveur n’est pas encore configuré. Lance <code>/setup installer</code> sur Discord pour créer les rôles, salons et panneaux.</div>
+<% } %>
+<div class="grid grid-4">
+  <div class="stat"><div class="label">Membres</div><div class="value"><%= stats.members ?? '—' %></div><div class="sub"><%= stats.testers ?? 0 %> testeur(s)</div></div>
+  <div class="stat"><div class="label">Tickets ouverts</div><div class="value"><%= stats.ticketsOpen %></div><div class="sub"><%= stats.ticketsTotal %> au total</div></div>
+  <div class="stat"><div class="label">Candidatures</div><div class="value"><%= stats.applications %></div><div class="sub"><%= stats.applicationsPending %> à traiter • <%= stats.applicationsAccepted %> acceptée(s)</div></div>
+  <div class="stat"><div class="label">Bugs ouverts</div><div class="value"><%= stats.bugsOpen %></div><div class="sub"><%= stats.bugsTotal %> signalé(s)</div></div>
+  <div class="stat"><div class="label">Suggestions</div><div class="value"><%= stats.suggestions %></div><div class="sub"><%= stats.suggestionsPending %> en attente</div></div>
+  <div class="stat"><div class="label">Tâches en cours</div><div class="value"><%= stats.tasksOpen %></div><div class="sub"><%= stats.tasksDone %> terminée(s)</div></div>
+  <div class="stat"><div class="label">Sessions de test</div><div class="value"><%= stats.testSessions %></div><div class="sub">organisées</div></div>
+  <div class="stat"><div class="label">Sondages</div><div class="value"><%= stats.polls %></div><div class="sub">créés</div></div>
+</div>
+<div class="grid grid-2" style="margin-top:18px">
+  <div class="card">
+    <h2>🤖 État du bot</h2>
+    <div class="row">
+      <% if (bot.avatar) { %><img src="<%= bot.avatar %>" alt="" style="width:64px;height:64px;border-radius:50%"><% } %>
+      <div>
+        <div><b><%= bot.tag || 'Bot' %></b></div>
+        <div class="<%= bot.ready ? 'status-on' : 'status-off' %>"><%= bot.ready ? '● Connecté à Discord' : '● Déconnecté' %></div>
+        <div class="muted">Latence : <%= bot.ping ?? '—' %> ms • En ligne depuis <%= Math.round(bot.uptime / 60000) %> min</div>
+        <% if (bot.guildName) { %><div class="muted">Serveur : <%= bot.guildName %></div><% } %>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>⚡ Accès rapides</h2>
+    <div class="actions">
+      <% if (can('tickets.handle')) { %><a class="btn" href="/tickets?status=open">🎫 Tickets ouverts</a><% } %>
+      <% if (can('whitelist.review')) { %><a class="btn" href="/applications?status=pending">📥 Candidatures à traiter</a><% } %>
+      <% if (can('bugs.manage')) { %><a class="btn" href="/bugs">🐞 Bugs ouverts</a><% } %>
+      <% if (can('dev.manage')) { %><a class="btn" href="/dev/roadmap">🗺️ Roadmap</a><% } %>
+      <% if (can('publications.manage')) { %><a class="btn" href="/publications">📢 Publier une annonce</a><% } %>
+    </div>
+  </div>
+</div>
+<% if (logs.length) { %>
+<div class="card">
+  <h2>🕒 Dernières activités <a class="btn btn-sm" href="/logs">Tous les logs</a></h2>
+  <div class="table-wrap"><table>
+    <tr><th>Date</th><th>Type</th><th>Événement</th><th>Par</th></tr>
+    <% for (const l of logs) { %>
+    <tr><td class="muted"><%= fmt(l.created_at) %></td><td><span class="badge"><%= l.type %></span></td><td><%= truncate(l.message.replace(/<[@#&!]+(\d+)>/g, (m, id) => '@' + memberName(id)).replace(/\*\*/g, ''), 160) %></td><td><%= memberName(l.actor_id) %></td></tr>
+    <% } %>
+  </table></div>
+</div>
+<% } %>
+<%- include('partials/foot') %>

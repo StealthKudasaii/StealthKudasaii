@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion — Panel RBKS PVP</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Rajdhani:wght@600;700&display=swap">
+<link rel="stylesheet" href="/public/style.css">
+</head>
+<body>
+<div class="login">
+  <div class="card">
+    <div class="logo-mark">RB</div>
+    <h1>Panel RBKS PVP</h1>
+    <p class="muted">Gestion du bot officiel : tickets, candidatures, roadmap, communauté.</p>
+    <% for (const f of flash) { %><div class="flash <%= f.type %>"><%= f.message %></div><% } %>
+    <p><a class="btn btn-discord" href="/auth/discord">Se connecter avec Discord</a></p>
+    <p class="hint">Seuls les membres du serveur disposant d’un rôle autorisé peuvent accéder au panel.</p>
+  </div>
+</div>
+</body>
+</html>

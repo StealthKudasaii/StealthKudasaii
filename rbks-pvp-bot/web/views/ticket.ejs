@@ -1,0 +1,34 @@
+<%- include('partials/head') %>
+<p><a href="/tickets">← Tickets</a></p>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Ticket n°<%= t.id %> <%- badge(C.TICKET_STATUS, t.status) %></h2>
+    <p><b>Motif :</b> <%= t.reason_label %></p>
+    <p><b>Créateur :</b> <%= memberName(t.user_id) %> <span class="muted">(<%= t.user_id %>)</span></p>
+    <p><b>Sujet :</b> <%= t.subject || '—' %></p>
+    <div class="answer pre"><%= t.details || '—' %></div>
+    <p><b>Pris en charge par :</b> <%= memberName(t.claimed_by) %></p>
+    <p><b>Ouvert le :</b> <%= fmt(t.created_at) %></p>
+    <% if (t.status === 'closed') { %>
+      <p><b>Fermé par :</b> <%= memberName(t.closed_by) %> le <%= fmt(t.closed_at) %><% if (t.close_reason) { %> — <%= t.close_reason %><% } %></p>
+      <% if (t.transcript_file) { %><a class="btn" href="/tickets/<%= t.id %>/transcript" target="_blank" rel="noopener">📄 Ouvrir le transcript (<%= t.message_count %> messages)</a><% } %>
+    <% } else { %>
+      <form method="post" action="/tickets/<%= t.id %>/close" data-confirm="Fermer ce ticket ? Un transcript sera enregistré.">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label>Raison de fermeture (facultatif)</label><input type="text" name="reason" maxlength="500">
+        <div class="actions"><button class="btn-danger" type="submit">🔒 Fermer le ticket</button></div>
+      </form>
+    <% } %>
+  </div>
+  <div class="card">
+    <h2>📝 Notes internes</h2>
+    <% if (!notes.length) { %><p class="muted">Aucune note.</p><% } %>
+    <% for (const n of notes) { %><div class="answer"><b><%= memberName(n.author_id) %> — <span class="muted"><%= fmt(n.created_at) %></span></b><div class="pre"><%= n.content %></div></div><% } %>
+    <form method="post" action="/tickets/<%= t.id %>/note">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <textarea name="content" maxlength="1500" placeholder="Visible du staff uniquement"></textarea>
+      <div class="actions"><button type="submit">Ajouter la note</button></div>
+    </form>
+  </div>
+</div>
+<%- include('partials/foot') %>

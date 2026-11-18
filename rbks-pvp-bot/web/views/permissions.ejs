@@ -1,0 +1,23 @@
+<%- include('partials/head') %>
+<div class="flash info">Ces accès sont vérifiés par le bot à chaque commande, bouton et page du panel, indépendamment des permissions d’affichage Discord. Le propriétaire du serveur et les membres ayant la permission Administrateur ont toujours accès à tout.</div>
+<% for (const [group, list] of groups) { %>
+<div class="card">
+  <h2><%= group %></h2>
+  <% for (const f of list) { %>
+  <details>
+    <summary><span><%= f.label %> <% if (!f.custom) { %><span class="badge">par défaut</span><% } %></span>
+      <span class="muted" style="font-weight:400;font-size:13px"><%= f.roles.map(id => (roles.find(r => r.id === id) || { name: id }).name).join(', ') || 'personne' %></span></summary>
+    <form method="post" action="/permissions">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <input type="hidden" name="feature" value="<%= f.key %>">
+      <%- include('partials/role-select', { name: 'roles', selected: f.roles, roles, multiple: true }) %>
+      <div class="actions">
+        <button class="btn-primary" type="submit">Enregistrer</button>
+        <button type="submit" name="reset" value="1" data-confirm="Revenir aux rôles par défaut ?">Rôles par défaut</button>
+      </div>
+    </form>
+  </details>
+  <% } %>
+</div>
+<% } %>
+<%- include('partials/foot') %>

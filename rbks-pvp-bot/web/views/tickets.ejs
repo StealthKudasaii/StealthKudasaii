@@ -1,0 +1,64 @@
+<%- include('partials/head') %>
+<div class="tabs">
+  <a href="/tickets" class="<%= !status ? 'active' : '' %>">Tous</a>
+  <% for (const [k, s] of Object.entries(C.TICKET_STATUS)) { %><a href="/tickets?status=<%= k %>" class="<%= status === k ? 'active' : '' %>"><%= s.emoji %> <%= s.label %></a><% } %>
+</div>
+<div class="card">
+  <h2>🎫 Tickets <span class="muted" style="font-size:14px"><%= total %> résultat(s)</span></h2>
+  <% if (!rows.length) { %><div class="empty">Aucun ticket.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>N°</th><th>Motif</th><th>Créateur</th><th>Statut</th><th>Pris en charge</th><th>Ouvert le</th><th></th></tr>
+    <% for (const t of rows) { %>
+    <tr><td>#<%= t.id %></td><td><%= t.reason_label %><div class="muted"><%= truncate(t.subject || '', 60) %></div></td><td><%= memberName(t.user_id) %></td><td><%- badge(C.TICKET_STATUS, t.status) %></td><td><%= memberName(t.claimed_by) %></td><td class="muted"><%= fmt(t.created_at) %></td><td><a class="btn btn-sm" href="/tickets/<%= t.id %>">Voir</a></td></tr>
+    <% } %>
+  </table></div>
+  <%- include('partials/pager', { query: { status } }) %>
+  <% } %>
+</div>
+<% if (can('tickets.manage')) { %>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>⚙️ Configuration
+      <form method="post" action="/tickets/panel" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-sm" type="submit">Republier le panneau</button></form>
+    </h2>
+    <form method="post" action="/tickets/settings">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Titre du panneau</label><input type="text" name="panelTitle" value="<%= settings.panelTitle %>">
+      <label>Texte du panneau</label><textarea name="panelDescription" rows="5"><%= settings.panelDescription %></textarea>
+      <label>Message d’accueil dans le ticket</label><textarea name="welcome" rows="3"><%= settings.welcome %></textarea>
+      <div class="grid grid-2">
+        <div><label>Tickets ouverts max. par membre</label><input type="number" name="maxOpen" min="1" max="10" value="<%= settings.maxOpen %>"></div>
+        <div><label>Délai entre deux ouvertures (s)</label><input type="number" name="cooldown" min="0" value="<%= settings.cooldown %>"></div>
+      </div>
+      <label>À la fermeture</label>
+      <select name="closeMode"><option value="delete" <%= settings.closeMode === 'delete' ? 'selected' : '' %>>Supprimer le salon</option><option value="archive" <%= settings.closeMode === 'archive' ? 'selected' : '' %>>Archiver le salon (visible du staff)</option></select>
+      <label class="check"><input type="checkbox" name="dmTranscript" <%= settings.dmTranscript ? 'checked' : '' %>> Envoyer le transcript au joueur en MP</label>
+      <div class="hint">Les rôles du support se configurent dans « Rôles & permissions » → Traiter les tickets. Le salon de logs dans « Réglages ».</div>
+      <div class="actions"><button class="btn-primary" type="submit">Enregistrer</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>🏷️ Motifs (<%= reasons.length %>/25)</h2>
+    <% for (const r of reasons) { %>
+    <details>
+      <summary><span><%= r.emoji || '•' %> <%= r.label %></span><% if (!r.enabled) { %><span class="badge warn">désactivé</span><% } %></summary>
+      <form method="post" action="/tickets/reasons/<%= r.id %>">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="grid grid-2"><div><label>Libellé</label><input type="text" name="label" maxlength="100" value="<%= r.label %>"></div><div><label>Emoji</label><input type="text" name="emoji" maxlength="10" value="<%= r.emoji || '' %>"></div></div>
+        <label>Description</label><input type="text" name="description" maxlength="100" value="<%= r.description || '' %>">
+        <div class="grid grid-2"><div><label>Position</label><input type="number" name="position" value="<%= r.position %>"></div><div><label class="check" style="margin-top:32px"><input type="checkbox" name="enabled" <%= r.enabled ? 'checked' : '' %>> Actif</label></div></div>
+        <div class="actions"><button class="btn-primary btn-sm" type="submit">Enregistrer</button><button class="btn-danger btn-sm" type="submit" name="delete" value="1" data-confirm="Supprimer ce motif ?">Supprimer</button></div>
+      </form>
+    </details>
+    <% } %>
+    <h3 style="margin-top:14px">Ajouter un motif</h3>
+    <form method="post" action="/tickets/reasons">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="grid grid-2"><div><label>Libellé</label><input type="text" name="label" maxlength="100" required></div><div><label>Emoji</label><input type="text" name="emoji" maxlength="10"></div></div>
+      <label>Description</label><input type="text" name="description" maxlength="100">
+      <div class="actions"><button type="submit">Ajouter</button></div>
+    </form>
+  </div>
+</div>
+<% } %>
+<%- include('partials/foot') %>

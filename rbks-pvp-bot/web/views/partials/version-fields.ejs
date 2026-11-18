@@ -1,0 +1,12 @@
+<% const v = locals.v || {}; %>
+<div class="grid grid-3">
+  <div><label>Numéro</label><input type="text" name="version" maxlength="20" value="<%= v.version || '' %>" placeholder="V0.1" required></div>
+  <div><label>Nom</label><input type="text" name="name" maxlength="100" value="<%= v.name || '' %>" placeholder="Combat System" required></div>
+  <div><label>Statut</label><select name="status"><% for (const [k, s] of Object.entries(C.VERSION_STATUS)) { %><option value="<%= k %>" <%= v.status === k ? 'selected' : '' %>><%= s.emoji %> <%= s.label %></option><% } %></select></div>
+</div>
+<label>Description</label><textarea name="description" maxlength="1500"><%= v.description || '' %></textarea>
+<label>Fonctionnalités prévues (une par ligne)</label><textarea name="features" rows="5" placeholder="[x] Combo de base&#10;Garde et contre"><%= v.featuresText || '' %></textarea>
+<div class="grid grid-2">
+  <div><label>Date prévisionnelle</label><input type="datetime-local" name="target_date" value="<%= toInputValue(v.target_date) %>"></div>
+  <div><label>Progression % (facultatif)</label><input type="number" name="progress" min="0" max="100" value="<%= v.progress ?? '' %>"></div>
+</div>

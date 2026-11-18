@@ -1,0 +1,30 @@
+<%- include('partials/head') %>
+<div class="card"><h2>📊 Vue d’ensemble</h2><div class="pre"><%= summary.replace(/\*\*/g, '') %></div></div>
+<div class="card">
+  <h2>📋 Formulaires</h2>
+  <% if (!list.length) { %><div class="empty">Aucun formulaire. Crée le premier ci-dessous ou avec <code>/wlcreate</code>.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>Nom</th><th>Titre</th><th>Statut</th><th>Questions</th><th>Candidatures</th><th></th></tr>
+    <% for (const f of list) { %>
+    <tr><td><code><%= f.name %></code></td><td><%= f.title %></td><td><span class="badge"><%= f.state %></span></td><td><%= f.questionCount %></td><td><%= f.stats.total %> <span class="muted">(<%= f.stats.pending + f.stats.on_hold %> à traiter)</span></td>
+      <td class="row"><% if (can('whitelist.manage')) { %><a class="btn btn-sm" href="/forms/<%= f.id %>">Modifier</a><% } %><% if (f.canReview) { %><a class="btn btn-sm" href="/applications?form=<%= f.id %>">Candidatures</a><% } %></td></tr>
+    <% } %>
+  </table></div>
+  <% } %>
+</div>
+<% if (can('whitelist.manage')) { %>
+<div class="card">
+  <h2>➕ Nouveau formulaire</h2>
+  <form method="post" action="/forms">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="grid grid-2">
+      <div><label>Nom interne</label><input type="text" name="name" maxlength="40" placeholder="beta-1" required></div>
+      <div><label>Titre affiché</label><input type="text" name="title" maxlength="200" placeholder="RBKS PVP — Candidature Bêta-Test" required></div>
+    </div>
+    <label>Description</label><textarea name="description" maxlength="2000"></textarea>
+    <div class="grid grid-2"><div><label>Texte du bouton</label><input type="text" name="button" maxlength="80" value="Postuler à la bêta"></div><div><label class="check" style="margin-top:32px"><input type="checkbox" name="template" checked> Pré-remplir avec le modèle bêta (modifiable)</label></div></div>
+    <div class="actions"><button class="btn-primary" type="submit">Créer</button></div>
+  </form>
+</div>
+<% } %>
+<%- include('partials/foot') %>

@@ -1,0 +1,19 @@
+<%- include('partials/head') %>
+<form method="get" class="row card" action="/applications">
+  <div><label>Formulaire</label><select name="form"><option value="">Tous</option><% for (const f of forms) { %><option value="<%= f.id %>" <%= formId === f.id ? 'selected' : '' %>><%= f.title %></option><% } %></select></div>
+  <div><label>Statut</label><select name="status"><option value="">Tous</option><% for (const [k, s] of Object.entries(C.APPLICATION_STATUS)) { %><option value="<%= k %>" <%= status === k ? 'selected' : '' %>><%= s.emoji %> <%= s.label %></option><% } %></select></div>
+  <div style="align-self:flex-end"><button type="submit">Filtrer</button></div>
+</form>
+<div class="card">
+  <h2>📥 Candidatures <span class="muted" style="font-size:14px"><%= total %> résultat(s)</span></h2>
+  <% if (!rows.length) { %><div class="empty">Aucune candidature.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>N°</th><th>Membre</th><th>Roblox</th><th>Formulaire</th><th>Statut</th><th>Soumise le</th><th></th></tr>
+    <% for (const a of rows) { %>
+    <tr><td>#<%= a.id %></td><td><%= a.user_tag || memberName(a.user_id) %></td><td><%= a.roblox_username || '—' %></td><td><%= formTitle(a.form_id) %></td><td><%- badge(C.APPLICATION_STATUS, a.status) %></td><td class="muted"><%= fmt(a.created_at) %></td><td><a class="btn btn-sm" href="/applications/<%= a.id %>">Examiner</a></td></tr>
+    <% } %>
+  </table></div>
+  <%- include('partials/pager', { query: { status: status || '', form: formId || '' } }) %>
+  <% } %>
+</div>
+<%- include('partials/foot') %>
