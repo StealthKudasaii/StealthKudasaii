@@ -53,7 +53,7 @@ En développement : `npm run dev` (rechargement automatique). Tests : `npm test`
 
 👉 Guide pas à pas : [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
-**Sur un VPS Linux** : `./deploy/install-vps.sh` installe le bot comme service et active la **mise à jour automatique à chaque push sur GitHub** (avec retour arrière si la nouvelle version échoue). **Sur un VPS Windows** : `git clone` puis `lancer-bot.bat`, qui fait la même chose, et `deploy\windows\demarrage-auto.bat` pour le lancer avec Windows. Voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+**Sur un VPS Linux** : `./deploy/install-vps.sh` installe le bot comme service et active la **mise à jour automatique à chaque push sur GitHub** (avec retour arrière si la nouvelle version échoue). **Sur un VPS Windows** : télécharge et lance [`INSTALLER-RBKS-PVP.bat`](https://github.com/StealthKudasaii/StealthKudasaii/raw/main/INSTALLER-RBKS-PVP.bat) (installe tout, demande le token, démarre le bot en arrière-plan avec mises à jour automatiques), ou à la main : `git clone` puis `lancer-bot.bat`, qui fait la même chose, et `deploy\windows\demarrage-auto.bat` pour le lancer avec Windows. Voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
 
 ## Commandes Discord
 

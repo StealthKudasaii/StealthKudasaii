@@ -21,6 +21,14 @@ Ajoute `https://panel.ton-domaine.fr/auth/callback` dans les redirects OAuth2 ([
 
 Si ton VPS est sous Windows (bureau à distance, invite de commandes `C:\Users\...`), les commandes Linux (`sudo`, `apt`) n’existent pas. Utilise cette méthode.
 
+### Le plus simple : `INSTALLER-RBKS-PVP.bat`
+
+Télécharge ce fichier sur le VPS : <https://github.com/StealthKudasaii/StealthKudasaii/raw/main/INSTALLER-RBKS-PVP.bat>, puis double-clique dessus. Il installe Git et Node.js si besoin, télécharge le bot dans `C:\RBKS-PVP`, ouvre `.env` dans le Bloc-notes pour le token, lance le bot en arrière-plan (démarrage avec Windows, mises à jour automatiques à chaque push) et ouvre le lien d’invitation. Le relancer répare ou met à jour l’installation.
+
+Si Windows affiche « Windows a protégé votre ordinateur » : **Informations complémentaires → Exécuter quand même**.
+
+Les étapes ci-dessous décrivent la même chose à la main.
+
 ### 1. Installer Git et Node.js (une seule fois)
 
 Dans le navigateur **du VPS**, télécharge et installe (bouton « Next » partout, options par défaut) :
