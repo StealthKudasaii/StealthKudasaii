@@ -153,7 +153,7 @@ Mise à jour : `git pull && docker compose up -d --build`.
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs build-essential python3
+sudo apt install -y nodejs
 sudo npm install -g pm2
 
 git clone <ton dépôt> && cd <dépôt>/rbks-pvp-bot

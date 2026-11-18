@@ -2,7 +2,7 @@
 
 ## Prérequis
 
-- **Node.js 22.12 ou plus récent** : <https://nodejs.org> (version LTS). Vérifie avec `node -v`.
+- **Node.js 22.13 ou plus récent** : <https://nodejs.org> (version LTS). Vérifie avec `node -v`.
 - Un serveur Discord dont tu es propriétaire ou administrateur.
 - 10 minutes pour créer l’application Discord ([DISCORD.md](DISCORD.md)).
 
@@ -22,7 +22,7 @@ cd rbks-pvp-bot
 npm install
 ```
 
-`better-sqlite3` utilise un binaire précompilé ; s’il n’existe pas pour ta plateforme, npm le compile (il faut alors Python 3 et un compilateur C++ : `build-essential` sous Debian/Ubuntu, « Outils de génération Visual Studio » sous Windows).
+Aucun module n’est compilé à l’installation (la base de données utilise le SQLite intégré à Node.js) : pas besoin de Visual Studio ni de compilateur.
 
 ## 2. Configurer `.env`
 

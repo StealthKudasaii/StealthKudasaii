@@ -18,11 +18,11 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)"
+node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)"
 if errorlevel 1 (
   echo [ERREUR] Node.js est trop ancien. Version actuelle :
   node -v
-  echo Installe la version 22.12 ou plus recente depuis https://nodejs.org
+  echo Installe la version 22.13 ou plus recente depuis https://nodejs.org
   pause
   exit /b 1
 )
@@ -41,7 +41,6 @@ if "%NEED_INSTALL%"=="1" (
   if errorlevel 1 (
     echo.
     echo [ERREUR] L'installation a echoue. Verifie ta connexion Internet.
-    echo Si l'erreur parle de better-sqlite3, installe les "Outils de generation Visual Studio".
     pause
     exit /b 1
   )

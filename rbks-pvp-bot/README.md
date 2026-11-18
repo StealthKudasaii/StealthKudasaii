@@ -36,7 +36,7 @@ Tout se gère depuis Discord (commandes slash, boutons, menus, fenêtres) ou dep
 
 **Sous Windows : double-clique sur `lancer-bot.bat`.** Il vérifie Node.js, installe les dépendances, crée le fichier `.env` (secret de session généré automatiquement) et l’ouvre dans le Bloc-notes s’il manque des valeurs, compile, lance le bot et le panel, puis le redémarre automatiquement s’il s’arrête.
 
-Autres systèmes — prérequis : **Node.js 22.12+** (ou Docker).
+Autres systèmes — prérequis : **Node.js 22.13+** (ou Docker).
 
 ```bash
 cd rbks-pvp-bot
@@ -71,7 +71,7 @@ Toutes les commandes vérifient les permissions **côté serveur**. `/help` n’
 
 ## Architecture
 
-**Choix techniques** : TypeScript, **discord.js 14** (composants de fenêtres modernes : listes, choix de salons/rôles, envoi de fichiers), **SQLite** via better-sqlite3 (persistant, transactionnel, zéro service à administrer, sauvegardes à chaud), **Express 5 + EJS** pour le panel (rendu serveur, aucun build front, fonctionne sans JavaScript), **zod** pour valider la configuration, **pino** pour les logs techniques.
+**Choix techniques** : TypeScript, **discord.js 14** (composants de fenêtres modernes : listes, choix de salons/rôles, envoi de fichiers), **SQLite** intégré à Node.js (`node:sqlite` : persistant, transactionnel, zéro service à administrer, sauvegardes à chaud, **aucun module à compiler**, donc pas besoin de Visual Studio), **Express 5 + EJS** pour le panel (rendu serveur, aucun build front, fonctionne sans JavaScript), **zod** pour valider la configuration, **pino** pour les logs techniques.
 
 Le bot et le panel tournent dans **le même processus** et partagent la même couche de services : une modification faite dans le panel passe par exactement le même code qu’une commande Discord, et le message Discord est mis à jour immédiatement.
 

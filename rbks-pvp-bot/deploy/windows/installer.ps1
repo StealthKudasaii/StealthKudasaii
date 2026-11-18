@@ -70,7 +70,7 @@ Step 'Node.js'
 $needNode = $true
 if (Has 'node') {
   $v = (& node -v).TrimStart('v').Split('.')
-  if ([int]$v[0] -gt 22 -or ([int]$v[0] -eq 22 -and [int]$v[1] -ge 12)) { $needNode = $false }
+  if ([int]$v[0] -gt 22 -or ([int]$v[0] -eq 22 -and [int]$v[1] -ge 13)) { $needNode = $false }
 }
 if ($needNode) {
   Write-Host '    Installation de Node.js 24 LTS (1 a 2 minutes)...'
@@ -120,7 +120,7 @@ Ok 'code du bot a jour'
 # ------------------------------------------------------------------ Dependances
 Step 'Installation des dependances (quelques minutes la premiere fois)'
 & npm ci --no-audit --no-fund
-if ($LASTEXITCODE -ne 0) { Fail 'npm ci a echoue (connexion Internet ?).' }
+if ($LASTEXITCODE -ne 0) { Fail 'installation des dependances impossible (npm ci). Le message exact est juste au-dessus.' }
 Ok 'dependances installees'
 
 # ------------------------------------------------------------------ Configuration

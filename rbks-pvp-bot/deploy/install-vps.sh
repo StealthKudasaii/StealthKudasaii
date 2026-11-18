@@ -18,10 +18,10 @@ fi
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "Ce dossier doit être un clone git du dépôt (git clone …)."; exit 1; }
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
-# ── Node.js 22.12+ ──
+# ── Node.js 22.13+ ──
 need_node=1
 if command -v node >/dev/null 2>&1; then
-  node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)' && need_node=0
+  node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)' && need_node=0
 fi
 if [ "$need_node" = "1" ]; then
   echo "→ Installation de Node.js 22 (NodeSource)…"

@@ -115,3 +115,30 @@ test('verrous et limites anti-abus', async () => {
   assert.equal(rateLimit('r', 2, 1000), true);
   assert.equal(rateLimit('r', 2, 1000), false);
 });
+
+test('base : transactions (annulation, imbrication) et sauvegarde', async () => {
+  const { db } = await import('../src/db');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const count = () => (db().prepare('SELECT COUNT(*) n FROM ticket_reasons').get() as { n: number }).n;
+  const before = count();
+  assert.throws(() =>
+    db().transaction(() => {
+      db().prepare('INSERT INTO ticket_reasons (label, position) VALUES (?, ?)').run('x', 99);
+      throw new Error('boom');
+    })(),
+  );
+  assert.equal(count(), before, 'annulée');
+  db().transaction(() => {
+    db().prepare('INSERT INTO ticket_reasons (label, position) VALUES (?, ?)').run('a', 1);
+    db().transaction(() => db().prepare('INSERT INTO ticket_reasons (label, position) VALUES (?, ?)').run('b', 2))();
+  })();
+  assert.equal(count(), before + 2);
+  const row = db().prepare('SELECT * FROM ticket_reasons LIMIT 1').get();
+  assert.equal(Object.getPrototypeOf(row), Object.prototype);
+  const file = path.join(os.tmpdir(), `rbks-backup-${process.pid}.sqlite`);
+  await db().backup(file);
+  assert.ok(fs.statSync(file).size > 0);
+  fs.rmSync(file);
+});
