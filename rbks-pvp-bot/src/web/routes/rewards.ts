@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
 import { env } from '../../config/env';
-import { challenges, isMetric, links, METRICS, unlocks, type ChallengeInput } from '../../modules/rewards/rewards.repo';
+import { challenges, links, METRICS, parseChallenge, unlocks, type ChallengeInput } from '../../modules/rewards/rewards.repo';
 import { syncPending, syncUser } from '../../modules/rewards/rewards.service';
 import { oauthConfigured, openCloudConfigured, openCloudError, robloxRedirectUri, writeRewardsEntry } from '../../modules/rewards/roblox';
 import { audit } from '../../modules/audit/audit';
@@ -13,24 +13,19 @@ const LUA_FILE = path.resolve(__dirname, '..', '..', '..', 'deploy', 'roblox', '
 const lua = () => (fs.existsSync(LUA_FILE) ? fs.readFileSync(LUA_FILE, 'utf8') : '-- Fichier deploy/roblox/RBKSRewards.server.lua introuvable');
 
 function readChallenge(body: Record<string, unknown>): ChallengeInput {
-  const metric = field.str(body, 'metric', 40);
-  if (!isMetric(metric)) throw new FormError('Type de défi inconnu.');
-  const title = field.str(body, 'title', 100);
-  const rewardId = field.str(body, 'reward_id', 50);
-  const rewardLabel = field.str(body, 'reward_label', 100);
-  if (!title || !rewardLabel) throw new FormError('Titre et récompense obligatoires.');
-  if (!/^[A-Za-z0-9_.-]{1,50}$/.test(rewardId)) throw new FormError('Identifiant de récompense invalide : lettres, chiffres, « _ », « - » ou « . » (c’est la clé utilisée dans le script Roblox).');
-  return {
-    title,
+  const parsed = parseChallenge({
+    metric: field.str(body, 'metric', 40),
+    title: field.str(body, 'title', 100),
+    rewardLabel: field.str(body, 'reward_label', 100),
+    rewardId: field.str(body, 'reward_id', 50),
+    threshold: field.str(body, 'threshold', 10),
     description: field.str(body, 'description', 200),
-    metric,
-    threshold: field.int(body, 'threshold', 1, 1_000_000) ?? 1,
-    reward_id: rewardId,
-    reward_label: rewardLabel,
     emoji: field.optStr(body, 'emoji', 10),
     position: field.int(body, 'position', 0, 999) ?? 0,
     enabled: field.bool(body, 'enabled'),
-  };
+  });
+  if (!parsed.ok) throw new FormError(parsed.error);
+  return parsed.value;
 }
 
 export function rewardsRouter(): Router {

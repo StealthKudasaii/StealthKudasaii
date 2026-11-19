@@ -15,7 +15,7 @@ test('toutes les commandes slash sont valides pour Discord', () => {
     assert.ok(c.description.length <= 100);
     assert.ok((c.options ?? []).length <= 25);
   }
-  for (const expected of ['setup', 'help', 'ping', 'botinfo', 'stats', 'ticket', 'wlcreate', 'wledit', 'wldelete', 'wllist', 'wlopen', 'wlclose', 'wlstats', 'wlreview', 'roadmap', 'release', 'todo', 'suggestion', 'bugreport', 'bugs', 'patchnote', 'announcement', 'notifications', 'testsession', 'poll', 'permissions', 'massdm', 'macle', 'invites', 'salon', 'rewards', 'rewardsadmin']) {
+  for (const expected of ['setup', 'help', 'ping', 'botinfo', 'stats', 'ticket', 'wlcreate', 'wledit', 'wldelete', 'wllist', 'wlopen', 'wlclose', 'wlstats', 'wlreview', 'roadmap', 'release', 'todo', 'suggestion', 'bugreport', 'bugs', 'patchnote', 'announcement', 'notifications', 'testsession', 'poll', 'permissions', 'massdm', 'macle', 'invites', 'salon', 'rewards', 'rewardsadmin', 'rewardsconfig']) {
     assert.ok(names.has(expected), `commande manquante : /${expected}`);
   }
   // Chaque commande documente son usage pour /help.

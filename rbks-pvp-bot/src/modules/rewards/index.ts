@@ -11,6 +11,7 @@ import { audit } from '../audit/audit';
 import { links, unlocks } from './rewards.repo';
 import { evaluate, metricLabel, progressFor, syncUser } from './rewards.service';
 import { createLinkToken, oauthConfigured } from './roblox';
+import { handleRewardsConfig, rewardsConfigCommand } from './admin';
 import { cancelVerification, completeLink, descriptionHasPhrase, fetchRobloxProfile, getVerification, linkConflict, lookupRobloxUser, startVerification, type PendingVerification } from './verify';
 
 async function rewardsPayload(member: GuildMember) {
@@ -133,8 +134,12 @@ async function handle(i: ComponentInteraction, action: string, args: string[]) {
 
 export const rewardsModule: BotModule = {
   name: 'rewards',
-  components: [{ prefix: 'rwd', handle }],
+  components: [
+    { prefix: 'rwd', handle },
+    { prefix: 'rwc', handle: handleRewardsConfig },
+  ],
   commands: [
+    rewardsConfigCommand,
     {
       data: new SlashCommandBuilder().setName('rewards').setDescription('Tes défis et récompenses en jeu (relier ton compte Roblox)'),
       category: '💬 Communauté',

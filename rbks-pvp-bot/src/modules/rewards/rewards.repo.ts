@@ -43,6 +43,66 @@ export interface RobloxLink {
 
 export type ChallengeInput = Omit<Challenge, 'id' | 'enabled'> & { enabled: boolean };
 
+/** Mesures « oui/non » : le seuil est toujours 1. */
+export const BINARY_METRICS: Metric[] = ['linked', 'beta', 'boost'];
+
+/** Identifiant de récompense lisible par le script du jeu, déduit du nom (« Titre Genin » → titre_genin). */
+export function slugifyRewardId(label: string): string {
+  return (
+    label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 50) || 'recompense'
+  );
+}
+
+/** Valide un défi saisi (commande Discord ou panel). */
+export function parseChallenge(raw: {
+  metric: string;
+  title: string;
+  rewardLabel: string;
+  rewardId?: string;
+  threshold?: string | number | null;
+  description?: string;
+  emoji?: string | null;
+  position?: number;
+  enabled?: boolean;
+}): { ok: true; value: ChallengeInput } | { ok: false; error: string } {
+  if (!isMetric(raw.metric)) return { ok: false, error: 'Type de défi inconnu.' };
+  const title = raw.title.trim();
+  const rewardLabel = raw.rewardLabel.trim();
+  if (!title) return { ok: false, error: 'Le nom du défi est obligatoire.' };
+  if (!rewardLabel) return { ok: false, error: 'La récompense est obligatoire.' };
+  if (title.length > 100 || rewardLabel.length > 100) return { ok: false, error: 'Nom du défi et récompense : 100 caractères maximum.' };
+  const rewardId = (raw.rewardId ?? '').trim() || slugifyRewardId(rewardLabel);
+  if (!/^[A-Za-z0-9_.-]{1,50}$/.test(rewardId)) {
+    return { ok: false, error: 'Identifiant pour le jeu invalide : lettres, chiffres, « _ », « - » ou « . » uniquement (c’est la clé utilisée dans le script Roblox). Laisse vide pour le générer.' };
+  }
+  let threshold = 1;
+  if (!BINARY_METRICS.includes(raw.metric)) {
+    const n = Number(String(raw.threshold ?? '').replace(/\s/g, ''));
+    if (!Number.isInteger(n) || n < 1 || n > 1_000_000) return { ok: false, error: 'L’objectif doit être un nombre entier entre 1 et 1 000 000.' };
+    threshold = n;
+  }
+  return {
+    ok: true,
+    value: {
+      title,
+      description: (raw.description ?? '').trim().slice(0, 200),
+      metric: raw.metric,
+      threshold,
+      reward_id: rewardId,
+      reward_label: rewardLabel,
+      emoji: raw.emoji?.trim() || null,
+      position: raw.position ?? 0,
+      enabled: raw.enabled ?? true,
+    },
+  };
+}
+
 export const challenges = {
   list(onlyEnabled = false): Challenge[] {
     return db().prepare(`SELECT * FROM reward_challenges ${onlyEnabled ? 'WHERE enabled = 1' : ''} ORDER BY position, id`).all() as Challenge[];
@@ -64,6 +124,25 @@ export const challenges = {
   },
   remove(id: number): void {
     db().prepare('DELETE FROM reward_challenges WHERE id = ?').run(id);
+  },
+  removeAll(): number {
+    return db().prepare('DELETE FROM reward_challenges').run().changes;
+  },
+  setEnabled(id: number, enabled: boolean): void {
+    db().prepare('UPDATE reward_challenges SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+  },
+  nextPosition(): number {
+    return (db().prepare('SELECT COALESCE(MAX(position), 0) + 1 p FROM reward_challenges').get() as { p: number }).p;
+  },
+  /** Déplace un défi d'un cran dans la liste affichée par /rewards. */
+  move(id: number, delta: -1 | 1): void {
+    const list = challenges.list();
+    const idx = list.findIndex((c) => c.id === id);
+    const target = idx + delta;
+    if (idx < 0 || target < 0 || target >= list.length) return;
+    [list[idx], list[target]] = [list[target], list[idx]];
+    const stmt = db().prepare('UPDATE reward_challenges SET position = ? WHERE id = ?');
+    db().transaction(() => list.forEach((c, i) => stmt.run(i + 1, c.id)))();
   },
   thresholds(metric: Metric): number[] {
     return (db().prepare('SELECT threshold FROM reward_challenges WHERE enabled = 1 AND metric = ?').all(metric) as { threshold: number }[]).map((r) => r.threshold);
