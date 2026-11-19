@@ -1,10 +1,6 @@
 import { Router, type Response } from 'express';
-import { tryGetGuild } from '../../bot/client';
-import { brandEmbed } from '../../bot/ui/embeds';
 import { childLogger } from '../../core/logger';
-import { audit } from '../../modules/audit/audit';
-import { links } from '../../modules/rewards/rewards.repo';
-import { evaluate, syncUser } from '../../modules/rewards/rewards.service';
+import { completeLink } from '../../modules/rewards/verify';
 import { finishAuthorization, oauthConfigured, startAuthorization } from '../../modules/rewards/roblox';
 
 const log = childLogger('roblox-oauth');
@@ -30,20 +26,8 @@ export function robloxRouter(): Router {
     if (!code || !state) return result(res, false, 'Lien invalide', 'Paramètres manquants. Recommence depuis /rewards sur Discord.');
     try {
       const { discordId, profile } = await finishAuthorization(state, code);
-      const owner = links.byRoblox(profile.id);
-      if (owner && owner.discord_id !== discordId) {
-        return result(res, false, 'Compte déjà relié', `Le compte Roblox ${profile.username} est déjà relié à un autre compte Discord. Si c’est une erreur, ouvre un ticket.`, 409);
-      }
-      const current = links.get(discordId);
-      if (current && current.roblox_id !== profile.id) {
-        return result(res, false, 'Un compte est déjà relié', `Ton Discord est déjà relié au compte Roblox ${current.roblox_username}. Pour en changer, demande au staff (ouvre un ticket).`, 409);
-      }
-      links.save(discordId, profile);
-      await audit({ type: 'community', action: 'roblox_link', actorId: discordId, message: `🔗 <@${discordId}> a relié son compte Roblox **${profile.username}** (${profile.id}).` });
-      await evaluate(discordId).catch(() => undefined);
-      void syncUser(discordId);
-      const member = await tryGetGuild()?.members.fetch(discordId).catch(() => null);
-      await member?.send({ embeds: [brandEmbed({ title: '🔗 Compte Roblox relié', description: `Ton compte Discord est maintenant relié à **${profile.username}**. Tes récompenses débloquées arriveront en jeu automatiquement. Suis tes défis avec \`/rewards\`.` })] }).catch(() => undefined);
+      const err = await completeLink(discordId, profile, 'connexion Roblox');
+      if (err) return result(res, false, 'Liaison impossible', err, 409);
       return result(res, true, 'Compte relié !', `Ton compte Roblox ${profile.username} est relié à ton compte Discord. Tu peux fermer cette page et retourner sur Discord.`);
     } catch (e) {
       log.warn({ err: (e as Error).message }, 'Liaison Roblox échouée');

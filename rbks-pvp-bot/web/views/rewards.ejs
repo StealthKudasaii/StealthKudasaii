@@ -3,13 +3,19 @@
   <h2>⚙️ Configuration Roblox</h2>
   <div class="grid grid-2">
     <div>
-      <h3>🔗 Liaison des comptes (connexion officielle Roblox)</h3>
-      <% if (cfg.oauth && cfg.https) { %><p><span class="badge ok">✅ Active</span></p><% } else { %>
-      <ol>
-        <li class="<%= cfg.https ? 'status-on' : '' %>">Le panel doit être accessible depuis Internet en <b>HTTPS</b> avec un nom de domaine (<code>PUBLIC_URL</code>). <%= cfg.https ? '✅' : '❌ actuellement : ' + brandUrl %></li>
-        <li>Creator Dashboard Roblox → <b>Credentials → OAuth 2.0 Apps</b> → crée une application, scopes <code>openid</code> et <code>profile</code>, URL de redirection :<br><code><%= cfg.redirectUri %></code></li>
-        <li class="<%= cfg.oauth ? 'status-on' : '' %>">Mets l’identifiant et le secret dans <code>.env</code> : <code>ROBLOX_OAUTH_CLIENT_ID</code>, <code>ROBLOX_OAUTH_CLIENT_SECRET</code>, puis redémarre le bot. <%= cfg.oauth ? '✅' : '❌' %></li>
-      </ol>
+      <h3>🔗 Liaison des comptes</h3>
+      <% if (cfg.oauth && cfg.https) { %>
+        <p><span class="badge ok">✅ Connexion officielle Roblox</span></p>
+      <% } else { %>
+        <p><span class="badge ok">✅ Active : phrase dans la description du profil</span></p>
+        <p class="muted">Rien à configurer. Dans <code>/rewards</code>, le joueur donne son nom Roblox, colle la phrase proposée dans la description de son profil Roblox (« À propos ») puis clique sur Vérifier. Le bot lit le profil public : aucun nom de domaine n’est nécessaire.</p>
+        <details><summary class="muted">Plus tard, avec un nom de domaine HTTPS : connexion officielle Roblox</summary>
+          <ol>
+            <li>Le panel doit être accessible en <b>HTTPS</b> (<code>PUBLIC_URL</code>). <%= cfg.https ? '✅' : '❌ actuellement : ' + brandUrl %></li>
+            <li>Creator Dashboard → <b>Credentials → OAuth 2.0 Apps</b>, scopes <code>openid</code> et <code>profile</code>, redirection : <code><%= cfg.redirectUri %></code></li>
+            <li><code>ROBLOX_OAUTH_CLIENT_ID</code> et <code>ROBLOX_OAUTH_CLIENT_SECRET</code> dans <code>.env</code>. <%= cfg.oauth ? '✅' : '❌' %></li>
+          </ol>
+        </details>
       <% } %>
     </div>
     <div>

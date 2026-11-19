@@ -1,8 +1,9 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder, type GuildMember } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, LabelBuilder, MessageFlags, ModalBuilder, SlashCommandBuilder, TextInputBuilder, TextInputStyle, type GuildMember } from 'discord.js';
 import { env } from '../../config/env';
 import type { BotModule, ComponentInteraction } from '../../bot/types';
 import { cid } from '../../bot/types';
-import { deferEphemeral, ephemeral, fail, requireFeature } from '../../bot/reply';
+import { deferEphemeral, ephemeral, fail, fromEphemeralMessage, openModal, requireFeature } from '../../bot/reply';
+import { hitCooldown } from '../../core/guards';
 import { brandEmbed, successEmbed, warnEmbed } from '../../bot/ui/embeds';
 import { discordTs } from '../../core/time';
 import { progressBar, truncate } from '../../core/text';
@@ -10,6 +11,7 @@ import { audit } from '../audit/audit';
 import { links, unlocks } from './rewards.repo';
 import { evaluate, metricLabel, progressFor, syncUser } from './rewards.service';
 import { createLinkToken, oauthConfigured } from './roblox';
+import { cancelVerification, completeLink, descriptionHasPhrase, fetchRobloxProfile, getVerification, linkConflict, lookupRobloxUser, startVerification, type PendingVerification } from './verify';
 
 async function rewardsPayload(member: GuildMember) {
   await evaluate(member.id).catch(() => undefined);
@@ -31,15 +33,90 @@ async function rewardsPayload(member: GuildMember) {
   });
   if (link?.sync_error) e.addFields({ name: 'Livraison en jeu', value: '⏳ En attente : le staff a été prévenu, nouvel essai automatique.' });
   const row = new ActionRowBuilder<ButtonBuilder>();
-  if (!link && oauthConfigured()) {
-    row.addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Relier mon compte Roblox').setEmoji('🔗').setURL(`${env().PUBLIC_URL}/roblox/link?t=${createLinkToken(member.id)}`));
+  if (!link) {
+    // Connexion officielle Roblox si un domaine HTTPS est configuré, sinon vérification par la description du profil.
+    if (oauthConfigured() && env().PUBLIC_URL.startsWith('https://')) {
+      row.addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Relier mon compte Roblox').setEmoji('🔗').setURL(`${env().PUBLIC_URL}/roblox/link?t=${createLinkToken(member.id)}`));
+    } else {
+      row.addComponents(new ButtonBuilder().setCustomId(cid('rwd', 'link')).setLabel('Relier mon compte Roblox').setEmoji('🔗').setStyle(ButtonStyle.Primary));
+    }
   }
   row.addComponents(new ButtonBuilder().setCustomId(cid('rwd', 'refresh')).setLabel('Actualiser').setEmoji('🔄').setStyle(ButtonStyle.Secondary));
-  if (!link && !oauthConfigured()) e.setFooter({ text: 'La liaison Roblox n’est pas encore activée par le staff.' });
   return { embeds: [e], components: [row] };
 }
 
+function verificationPayload(v: PendingVerification, notice?: string) {
+  const e = brandEmbed({
+    title: '🔗 Relier ton compte Roblox',
+    description: `${notice ? `${notice}\n\n` : ''}Compte : **${v.profile.username}**${v.profile.displayName && v.profile.displayName !== v.profile.username ? ` (${v.profile.displayName})` : ''}\n\n**1.** Ouvre ton profil Roblox (bouton ci-dessous) et clique sur le crayon à côté de **« À propos »**.\n**2.** Colle cette phrase dans ta description, puis **enregistre** :\n\`\`\`\n${v.phrase}\n\`\`\`**3.** Reviens ici et clique sur **Vérifier**.\n\nTu pourras retirer la phrase une fois le compte relié. Elle expire ${'<t:' + Math.floor(v.expires / 1000) + ':R>'}.`,
+  });
+  return {
+    embeds: [e],
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId(cid('rwd', 'verify')).setLabel('Vérifier').setEmoji('✅').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Ouvrir mon profil Roblox').setURL(`https://www.roblox.com/users/${v.profile.id}/profile`),
+        new ButtonBuilder().setCustomId(cid('rwd', 'cancel')).setLabel('Annuler').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+  };
+}
+
 async function handle(i: ComponentInteraction, action: string, args: string[]) {
+  if (action === 'link') {
+    if (links.get(i.user.id)) return fail(i, 'Ton compte Roblox est déjà relié.');
+    return openModal(
+      i,
+      new ModalBuilder()
+        .setCustomId(cid('rwd', 'linkname'))
+        .setTitle('Relier ton compte Roblox')
+        .addLabelComponents(
+          new LabelBuilder()
+            .setLabel('Ton nom d’utilisateur Roblox')
+            .setDescription('Le nom exact (pas le nom d’affichage)')
+            .setTextInputComponent(new TextInputBuilder().setCustomId('username').setStyle(TextInputStyle.Short).setRequired(true).setMinLength(3).setMaxLength(20)),
+        ),
+    );
+  }
+  if (action === 'linkname' && i.isModalSubmit()) {
+    const username = i.fields.getTextInputValue('username').trim();
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) return fail(i, 'Nom d’utilisateur Roblox invalide (3 à 20 caractères : lettres, chiffres ou _).');
+    await deferEphemeral(i);
+    let profile;
+    try {
+      profile = await lookupRobloxUser(username);
+    } catch (e) {
+      return fail(i, (e as Error).message);
+    }
+    if (!profile) return fail(i, `Aucun compte Roblox nommé « ${username} ». Vérifie l’orthographe (nom d’utilisateur, pas nom d’affichage).`);
+    const conflict = linkConflict(i.user.id, profile);
+    if (conflict) return fail(i, conflict);
+    return i.editReply(verificationPayload(startVerification(i.user.id, profile)));
+  }
+  if (action === 'verify' && i.isButton()) {
+    const v = getVerification(i.user.id);
+    if (!v) return i.update({ embeds: [warnEmbed('La vérification a expiré. Refais /rewards puis « Relier mon compte Roblox ».')], components: [] });
+    const wait = hitCooldown(`rwdverify:${i.user.id}`, 5000);
+    if (wait) return fail(i, 'Patiente quelques secondes avant de revérifier.');
+    await i.deferUpdate();
+    let profile;
+    try {
+      profile = await fetchRobloxProfile(v.profile.id);
+    } catch (e) {
+      return i.editReply(verificationPayload(v, `⚠️ ${(e as Error).message}`));
+    }
+    if (!descriptionHasPhrase(profile.description, v.phrase)) {
+      return i.editReply(verificationPayload(v, '❌ Phrase introuvable dans ta description. Vérifie que tu as bien **enregistré** ton profil, puis réessaie (Roblox peut mettre quelques secondes à la mettre à jour). Si Roblox a remplacé des mots par des #, refais /rewards pour obtenir une nouvelle phrase.'));
+    }
+    const err = await completeLink(i.user.id, { id: profile.id, username: profile.username, displayName: profile.displayName }, 'description du profil');
+    if (err) return i.editReply({ embeds: [warnEmbed(err)], components: [] });
+    return i.editReply({ embeds: [successEmbed(`Compte Roblox **${profile.username}** relié ! Tu peux retirer la phrase de ta description. Tes récompenses débloquées arrivent en jeu automatiquement.`)], components: [] });
+  }
+  if (action === 'cancel' && i.isButton()) {
+    cancelVerification(i.user.id);
+    if (fromEphemeralMessage(i)) return i.update({ embeds: [warnEmbed('Liaison annulée.')], components: [] });
+    return;
+  }
   if (action === 'refresh' && i.isButton()) {
     await i.deferUpdate();
     return i.editReply(await rewardsPayload(i.member));
