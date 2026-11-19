@@ -50,6 +50,8 @@ export const SETTING_DEFAULTS = {
   /** Messages « panneau » publiés par le bot (clé → salon/message). */
   'panels': {} as Record<string, { channelId: string; messageId: string }>,
   'internal.lastBackup': 0,
+  /** Verrou de /setup : null = automatique (verrouillé dès que le serveur a été installé une fois). */
+  'setup.locked': null as boolean | null,
   /** Message d’en-tête de la roadmap. */
   'roadmap.header': null as { channelId: string; messageId: string } | null,
 };

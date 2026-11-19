@@ -7,6 +7,7 @@ import { LOG_TYPES } from '../../modules/audit/audit';
 import { audit } from '../../modules/audit/audit';
 import { listBackups, backupDatabase } from '../../core/backup';
 import { publishAllPanels } from '../../modules/setup';
+import { welcomeChannelId } from '../../modules/welcome';
 import { requireFeature } from '../middleware';
 import { action, field, guildRoles, guildTextChannels, FormError } from '../helpers';
 
@@ -43,7 +44,7 @@ export function settingsRouter(): Router {
         imageUrl: getSetting('welcome.imageUrl'),
         dmEnabled: getSetting('welcome.dmEnabled'),
         dmMessage: getSetting('welcome.dmMessage'),
-        channel: channelId('welcome'),
+        channel: welcomeChannelId(),
       },
     });
   });

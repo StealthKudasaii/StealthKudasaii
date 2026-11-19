@@ -9,7 +9,9 @@ import { channelId } from '../../core/resources';
 import { getSetting } from '../../core/settings';
 import { withLock } from '../../core/guards';
 import { discordTs } from '../../core/time';
-import { isHttpUrl, sanitizeMentions, truncate } from '../../core/text';
+import { isHttpUrl, normalizeName, sanitizeMentions, truncate } from '../../core/text';
+import { tryGetGuild } from '../../bot/client';
+import { ChannelType } from 'discord.js';
 import { childLogger } from '../../core/logger';
 
 const log = childLogger('welcome');
@@ -126,6 +128,21 @@ export const joins = {
 
 // ───────────── Message de bienvenue ─────────────
 
+/**
+ * Salon de bienvenue : celui choisi avec /salon ou dans le panel, sinon celui créé par /setup,
+ * sinon un salon existant dont le nom contient « bienvenue » ou « welcome » (aucune création nécessaire).
+ */
+export function welcomeChannelId(): string | null {
+  const configured = channelId('welcome');
+  if (configured) return configured;
+  const guild = tryGetGuild();
+  if (!guild) return null;
+  const found = guild.channels.cache.find(
+    (c) => (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement) && /bienvenu|welcome/.test(normalizeName(c.name)),
+  );
+  return found?.id ?? null;
+}
+
 export interface WelcomeContext {
   userId: string;
   displayName: string;
@@ -171,7 +188,7 @@ async function onJoin(member: GuildMember): Promise<JoinSource> {
     inviterInvites: join.inviterId ? joins.statsFor(join.inviterId).active : null,
   };
   if (getSetting('welcome.enabled')) {
-    const ch = await fetchTextChannel(channelId('welcome')).catch(() => null);
+    const ch = await fetchTextChannel(welcomeChannelId()).catch(() => null);
     if (ch) {
       await ch
         .send({ content: `<@${member.id}>`, embeds: [welcomeEmbed(ctx, member.displayAvatarURL({ size: 256 }))], allowedMentions: { users: [member.id] } })

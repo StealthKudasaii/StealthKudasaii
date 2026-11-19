@@ -22,7 +22,7 @@ Tout se gère depuis Discord (commandes slash, boutons, menus, fenêtres) ou dep
 
 | Domaine | Ce que fait le bot |
 |---|---|
-| **/setup** | Crée les rôles (hiérarchie Fondateur → Bots + 5 rôles de notification), les catégories, les salons et leurs permissions. **Idempotent** : reconnaît l’existant (même renommé), corrige les permissions manquantes sans écraser les tiennes, affiche un **aperçu avant d’appliquer**. `/setup cleanup` ne touche qu’aux éléments gérés par le bot, avec aperçu et confirmation. |
+| **/setup** | Crée les rôles (hiérarchie Fondateur → Bots + 5 rôles de notification), les catégories, les salons et leurs permissions. **Idempotent** : reconnaît l’existant (même renommé), corrige les permissions manquantes sans écraser les tiennes, affiche un **aperçu avant d’appliquer**. `/setup cleanup` ne touche qu’aux éléments gérés par le bot, avec aperçu et confirmation. **Une fois le serveur installé, la structure est verrouillée** : `/setup` ne modifie plus rien sans `/setup deverrouiller`, et `/salon definir` branche une fonction du bot sur un salon existant sans toucher aux salons. |
 | **Tickets** | Panneau avec bouton → choix du motif → formulaire → salon privé. Prise en charge, ajout de membres, notes internes invisibles du joueur, fermeture avec confirmation, **transcript HTML** archivé (logs + panel), suppression ou archivage du salon. Anti-spam : tickets ouverts max, délai entre ouvertures, limite globale. |
 | **Candidatures bêta** | `/wlcreate` ouvre un **assistant** : infos, salons, rôles, paramètres, questions (réponse courte/longue, choix unique/multiple, nombre, pseudo Roblox, obligatoire ou non, texte indicatif, plage). Découpage automatique en **étapes** au-delà de 5 questions. Examen par le staff avec Accepter / Refuser (motif) / En attente / Note / Consulter, attribution du rôle, MP, historique. Formulaires multiples et indépendants. |
 | **Développement** | `#release` : une fiche par version (fonctionnalités, statut, date, progression). `#to-do` : une fiche par tâche avec boutons *En cours / En test / Terminé / Reporter*. **Roadmap** : un message par catégorie, mis à jour sur place. |
@@ -64,7 +64,7 @@ Toutes les commandes vérifient les permissions **côté serveur**. `/help` n’
 | Catégorie | Commandes |
 |---|---|
 | Général | `/help`, `/ping`, `/botinfo`, `/stats` |
-| Administration | `/setup installer`, `/setup cleanup`, `/setup panneaux`, `/permissions view/add/remove/reset` |
+| Administration | `/setup installer`, `/setup cleanup`, `/setup panneaux`, `/setup verrouiller/deverrouiller`, `/salon definir/voir/reinitialiser`, `/permissions view/add/remove/reset` |
 | Support | `/ticket add/remove/claim/close/panel` |
 | Candidatures | `/wlcreate`, `/wledit`, `/wldelete`, `/wllist`, `/wlopen`, `/wlclose`, `/wlstats`, `/wlreview` |
 | Développement | `/release create/edit/status/list/delete/sync`, `/todo add/edit/status/list/remove`, `/roadmap view/add/edit/remove/status/progress/publish` |
