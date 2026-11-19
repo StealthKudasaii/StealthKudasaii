@@ -20,6 +20,9 @@ import { testSessionsModule } from '../modules/community/testsessions';
 import { pollsModule } from '../modules/community/polls';
 import { notificationsModule } from '../modules/notifications';
 import { publicationsModule } from '../modules/publications';
+import { massdmModule } from '../modules/massdm';
+import { resumeCampaigns } from '../modules/massdm/massdm.service';
+import { welcomeModule, loadInviteCache } from '../modules/welcome';
 
 const log = childLogger('bot');
 
@@ -35,6 +38,8 @@ export const MODULES = [
   pollsModule,
   notificationsModule,
   publicationsModule,
+  massdmModule,
+  welcomeModule,
 ];
 
 let registered = false;
@@ -74,6 +79,8 @@ export async function startBot() {
       }
     }
     applyPresence();
+    await loadInviteCache(guild);
+    resumeCampaigns();
     // Annonce dans les logs la dernière mise à jour automatique (ou son annulation).
     const deploy = readDeployInfo();
     if (deploy && !deploy.announced) {

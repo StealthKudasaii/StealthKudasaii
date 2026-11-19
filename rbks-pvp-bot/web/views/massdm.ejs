@@ -1,0 +1,32 @@
+<%- include('partials/head') %>
+<div class="flash info">Les envois se préparent et se lancent depuis Discord avec <code>/massdm create</code> (aperçu, test, puis envoi). Les membres retrouvent leur clé avec <code>/macle</code>. Cette page sert à suivre les lots et à télécharger les clés pour Roblox.</div>
+<div class="card">
+  <h2>📨 Lots</h2>
+  <% if (!list.length) { %><div class="empty">Aucun lot pour le moment.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>Lot</th><th>Rôle</th><th>Statut</th><th>Reçus</th><th>Échecs</th><th>En attente</th><th>Créé le</th><th>Clés</th></tr>
+    <% for (const c of list) { %>
+    <tr>
+      <td><b><%= c.name %></b><div class="muted"><%= truncate(c.title || '', 60) %></div></td>
+      <td><%= (roles.find(r => r.id === c.role_id) || { name: 'rôle supprimé' }).name %></td>
+      <td><span class="badge <%= c.running ? 'info' : c.status === 'done' ? 'ok' : '' %>"><%= c.running ? '📨 Envoi en cours' : c.status === 'done' ? '✅ Envoyé' : c.status === 'sending' ? '⏸️ Interrompu' : '📝 Brouillon' %></span></td>
+      <td><%= c.counts.sent %> / <%= c.counts.total %></td>
+      <td><%= c.counts.failed %></td>
+      <td><%= c.counts.pending %></td>
+      <td class="muted"><%= fmt(c.created_at) %></td>
+      <td><% if (c.with_keys && c.counts.total) { %><div class="row"><a class="btn btn-sm" href="/massdm/<%= c.id %>/export.lua">Roblox .lua</a><a class="btn btn-sm" href="/massdm/<%= c.id %>/export.csv">.csv</a><a class="btn btn-sm" href="/massdm/<%= c.id %>/export.json">.json</a></div><% } else { %><span class="muted">—</span><% } %></td>
+    </tr>
+    <% } %>
+  </table></div>
+  <% } %>
+</div>
+<div class="card">
+  <h2>🎮 Utiliser les clés dans Roblox</h2>
+  <ol>
+    <li>Télécharge le fichier <b>Roblox .lua</b> du lot.</li>
+    <li>Dans Roblox Studio, crée un <b>ModuleScript</b> nommé <code>RBKSAccessKeys</code> dans <b>ServerStorage</b> (jamais dans ReplicatedStorage : les joueurs pourraient lire les clés) et colle le contenu du fichier.</li>
+    <li>Côté serveur, vérifie la clé saisie par le joueur : <code>local Keys = require(game.ServerStorage.RBKSAccessKeys)</code> puis <code>if Keys[cle] then -- accès autorisé end</code>.</li>
+    <li>Quand de nouveaux testeurs reçoivent leur clé, télécharge à nouveau le fichier et remplace le contenu du ModuleScript.</li>
+  </ol>
+</div>
+<%- include('partials/foot') %>

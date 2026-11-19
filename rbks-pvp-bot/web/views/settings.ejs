@@ -18,6 +18,20 @@
     <div class="actions"><button class="btn-primary" type="submit">Enregistrer les salons</button></div>
   </form>
 </div>
+<div class="card" id="bienvenue">
+  <h2>👋 Message de bienvenue</h2>
+  <% if (!w.channel) { %><div class="flash info">Le salon #bienvenue n’existe pas encore : relance <code>/setup installer</code> sur Discord (rien ne sera recréé en double), ou choisis un salon « Bienvenue » ci-dessus.</div><% } %>
+  <form method="post" action="/settings/welcome">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <label class="check"><input type="checkbox" name="enabled" <%= w.enabled ? 'checked' : '' %>> Publier un message de bienvenue dans le salon de bienvenue</label>
+    <label>Message (Markdown Discord)</label><textarea name="message" rows="4"><%= w.message %></textarea>
+    <div class="hint">Variables : {membre} (mention), {pseudo}, {serveur}, {nombre} (nombre de membres), {invitepar}, {invitations} (invitations de la personne qui l’a invité), {regles}, {notifications}. Le parrain est aussi affiché automatiquement sous le message.</div>
+    <label>Image (URL, facultatif)</label><input type="url" name="imageUrl" value="<%= w.imageUrl %>" placeholder="https://…">
+    <label class="check"><input type="checkbox" name="dmEnabled" <%= w.dmEnabled ? 'checked' : '' %>> Envoyer aussi un message privé de bienvenue</label>
+    <label>Message privé</label><textarea name="dmMessage" rows="3"><%= w.dmMessage %></textarea>
+    <div class="actions"><button class="btn-primary" type="submit">Enregistrer</button></div>
+  </form>
+</div>
 <div class="card">
   <h2>🔔 Rôles de notification et rôle Membre</h2>
   <form method="post" action="/settings/roles">

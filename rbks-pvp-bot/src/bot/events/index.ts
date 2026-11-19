@@ -8,44 +8,51 @@ import { childLogger } from '../../core/logger';
 import { brandEmbed } from '../ui/embeds';
 import { audit } from '../../modules/audit/audit';
 import { tickets } from '../../modules/tickets/tickets.repo';
+import { attachWelcome } from '../../modules/welcome';
 
 const log = childLogger('events');
 
 export function attachEvents(client: Client): void {
-  client.on(Events.GuildMemberAdd, async (member) => {
-    if (member.guild.id !== env().GUILD_ID) return;
-    if (getSetting('members.autoroleOnJoin') && !member.user.bot) {
-      const r = roleId('member');
-      if (r) await member.roles.add(r, 'Attribution automatique').catch((e) => log.warn({ err: e }, 'Rôle Membre non attribué'));
-    }
-    if (member.user.bot) {
-      const r = roleId('bots');
-      if (r) await member.roles.add(r).catch(() => undefined);
-    }
-    await audit({
-      type: 'members',
-      action: 'join',
-      actorId: member.id,
-      message: `${member} a rejoint le serveur.`,
-      embed: brandEmbed({ title: '👋 Arrivée', description: `${member} (${member.user.tag})`, color: COLORS.success })
-        .setThumbnail(member.displayAvatarURL())
-        .addFields({ name: 'Compte créé', value: discordTs(member.user.createdTimestamp, 'R'), inline: true }, { name: 'Membres', value: String(member.guild.memberCount), inline: true }),
-    });
-  });
-
-  client.on(Events.GuildMemberRemove, async (member: GuildMember | PartialGuildMember) => {
-    if (member.guild.id !== env().GUILD_ID) return;
-    await audit({
-      type: 'members',
-      action: 'leave',
-      actorId: member.id,
-      message: `${member.user?.tag ?? member.id} a quitté le serveur.`,
-      embed: brandEmbed({ title: '🚪 Départ', description: `<@${member.id}> (${member.user?.tag ?? member.id})`, color: COLORS.muted }).addFields(
-        { name: 'Arrivé', value: member.joinedTimestamp ? discordTs(member.joinedTimestamp, 'R') : '—', inline: true },
-        { name: 'Membres', value: String(member.guild.memberCount), inline: true },
-      ),
-    });
-  });
+  // Arrivées/départs : le module bienvenue détecte l'invitation utilisée, puis on applique les rôles et on journalise.
+  attachWelcome(
+    client,
+    async (member, join) => {
+      if (getSetting('members.autoroleOnJoin') && !member.user.bot) {
+        const r = roleId('member');
+        if (r) await member.roles.add(r, 'Attribution automatique').catch((e) => log.warn({ err: e }, 'Rôle Membre non attribué'));
+      }
+      if (member.user.bot) {
+        const r = roleId('bots');
+        if (r) await member.roles.add(r).catch(() => undefined);
+      }
+      const via = join.inviterId ? `<@${join.inviterId}>${join.code ? ` (lien \`${join.code}\`)` : ''}` : join.source === 'vanity' ? 'lien personnalisé du serveur' : 'inconnu';
+      await audit({
+        type: 'members',
+        action: 'join',
+        actorId: member.id,
+        message: `${member} a rejoint le serveur (invité par : ${via}).`,
+        embed: brandEmbed({ title: '👋 Arrivée', description: `${member} (${member.user.tag})`, color: COLORS.success })
+          .setThumbnail(member.displayAvatarURL())
+          .addFields(
+            { name: 'Compte créé', value: discordTs(member.user.createdTimestamp, 'R'), inline: true },
+            { name: 'Invité par', value: via, inline: true },
+            { name: 'Membres', value: String(member.guild.memberCount), inline: true },
+          ),
+      });
+    },
+    async (member: GuildMember | PartialGuildMember) => {
+      await audit({
+        type: 'members',
+        action: 'leave',
+        actorId: member.id,
+        message: `${member.user?.tag ?? member.id} a quitté le serveur.`,
+        embed: brandEmbed({ title: '🚪 Départ', description: `<@${member.id}> (${member.user?.tag ?? member.id})`, color: COLORS.muted }).addFields(
+          { name: 'Arrivé', value: member.joinedTimestamp ? discordTs(member.joinedTimestamp, 'R') : '—', inline: true },
+          { name: 'Membres', value: String(member.guild.memberCount), inline: true },
+        ),
+      });
+    },
+  );
 
   // Sanctions : lues depuis le journal d'audit Discord (bannissements, expulsions, exclusions temporaires).
   client.on(Events.GuildAuditLogEntryCreate, async (entry, guild) => {

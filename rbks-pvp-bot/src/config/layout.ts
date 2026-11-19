@@ -111,6 +111,7 @@ export type ChannelPreset =
   | 'tickets_category'; // catégorie privée des tickets
 
 export type ChannelKey =
+  | 'welcome'
   | 'announcements'
   | 'rules'
   | 'notifications'
@@ -155,6 +156,7 @@ export const CATEGORY_SPECS: CategorySpec[] = [
     key: 'cat_info',
     name: '📌 RBKS PVP',
     channels: [
+      { key: 'welcome', name: 'bienvenue', type: T, preset: 'public_readonly', topic: 'Les nouveaux membres de RBKS PVP' },
       { key: 'announcements', name: 'annonces', type: T, preset: 'public_readonly', topic: 'Annonces officielles de RBKS PVP' },
       { key: 'rules', name: 'règlement', aliases: ['reglement', 'rules'], type: T, preset: 'public_readonly', topic: 'Règlement du serveur' },
       { key: 'notifications', name: 'notifications', type: T, preset: 'public_readonly', topic: 'Choisis les notifications que tu veux recevoir' },

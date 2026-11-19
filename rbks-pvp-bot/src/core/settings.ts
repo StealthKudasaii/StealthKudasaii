@@ -26,6 +26,12 @@ export const SETTING_DEFAULTS = {
     community: true,
   } as Record<string, boolean>,
   'members.autoroleOnJoin': false,
+  'welcome.enabled': true,
+  'welcome.message':
+    'Bienvenue {membre} sur **{serveur}** ! Tu es notre **{nombre}ᵉ** membre 🔥\n\nLis le règlement dans {regles}, puis choisis tes notifications dans {notifications}.',
+  'welcome.imageUrl': '' as string,
+  'welcome.dmEnabled': false,
+  'welcome.dmMessage': 'Bienvenue sur **{serveur}**, {pseudo} ! Pense à lire le règlement et à suivre l’actualité du jeu. Bon jeu ⚔️',
   'rules.title': '📜 Règlement de RBKS PVP',
   'rules.text':
     '**1.** Respecte tous les membres, staff comme joueurs.\n**2.** Pas de spam, de pub ou de contenu NSFW.\n**3.** Pas de triche, d’exploit ou de partage de failles : signale-les avec `/bugreport`.\n**4.** Les spoils restent dans #spoil.\n**5.** Les décisions du staff s’appliquent ; conteste-les calmement via un ticket.\n\nClique sur le bouton ci-dessous pour confirmer que tu as lu le règlement.',

@@ -37,6 +37,14 @@ export function settingsRouter(): Router {
         reminder: getSetting('testsessions.reminderMinutes'),
       },
       backups: listBackups().slice(0, 10),
+      w: {
+        enabled: getSetting('welcome.enabled'),
+        message: getSetting('welcome.message'),
+        imageUrl: getSetting('welcome.imageUrl'),
+        dmEnabled: getSetting('welcome.dmEnabled'),
+        dmMessage: getSetting('welcome.dmMessage'),
+        channel: channelId('welcome'),
+      },
     });
   });
 
@@ -82,6 +90,20 @@ export function settingsRouter(): Router {
       setSetting('logs.enabled', enabled);
       await audit({ type: 'admin', action: 'settings', actorId: req.member!.id, message: 'Réglages généraux modifiés depuis le panel.' });
       return 'Réglages enregistrés.';
+    }),
+  );
+
+  r.post('/settings/welcome', requireFeature('settings.manage'), (req, res) =>
+    action(req, res, '/settings#bienvenue', async () => {
+      const img = field.str(req.body, 'imageUrl', 500);
+      if (img && !/^https?:\/\//.test(img)) throw new FormError('URL d’image invalide.');
+      setSetting('welcome.enabled', field.bool(req.body, 'enabled'));
+      setSetting('welcome.message', field.str(req.body, 'message', 3000) || 'Bienvenue {membre} !');
+      setSetting('welcome.imageUrl', img);
+      setSetting('welcome.dmEnabled', field.bool(req.body, 'dmEnabled'));
+      setSetting('welcome.dmMessage', field.str(req.body, 'dmMessage', 3000));
+      await audit({ type: 'admin', action: 'welcome', actorId: req.member!.id, message: 'Message de bienvenue modifié depuis le panel.' });
+      return 'Message de bienvenue enregistré.';
     }),
   );
 

@@ -28,6 +28,8 @@ Tout se gère depuis Discord (commandes slash, boutons, menus, fenêtres) ou dep
 | **Développement** | `#release` : une fiche par version (fonctionnalités, statut, date, progression). `#to-do` : une fiche par tâche avec boutons *En cours / En test / Terminé / Reporter*. **Roadmap** : un message par catégorie, mis à jour sur place. |
 | **Publications** | Patch notes (nouveautés, corrections, équilibrage, image, date), annonces, mises à jour, spoils, chacun dans son salon, avec mention facultative du rôle de notification. Modifiables après publication. |
 | **Communauté** | Suggestions avec vote 👍/👎 (1 vote par membre), fil de discussion, statut et réponse du staff. Rapports de bug avec plateforme et **captures/vidéos jointes**, prise en charge, statut, notes internes, historique. Sessions de test avec inscription, places, **liste d’attente** et promotion automatique, rappel avant la session. Sondages (anonymes ou publics, choix multiples, durée, résultats en direct). |
+| **MP groupés + clés d’accès** | `/massdm create` prépare un message privé pour tous les membres d’un rôle (ex. 🧪 Testeur), avec une **clé d’accès unique par membre** (`RBKS-XXXX-XXXX-XXXX`). Aperçu, envoi de test, confirmation, envoi progressif (anti-spam Discord), reprise automatique après redémarrage, relance des échecs, ajout des nouveaux membres du rôle sans changer les clés déjà données. Export des clés en **ModuleScript Roblox (.lua)**, CSV et JSON (Discord ou panel). Les membres retrouvent leur clé avec `/macle`. |
+| **Bienvenue & invitations** | Message de bienvenue personnalisable dans #bienvenue (et en MP si souhaité) indiquant **qui a invité** le nouveau membre. `/invites voir` et `/invites classement` : invitations comptées sans doublon (départs et retours gérés). |
 | **Notifications** | Panneau où chaque membre choisit ses rôles de notification (annonces, mises à jour, patch notes, bêta, sessions). |
 | **Stats & logs** | `/stats` et tableau de bord. Logs configurables (arrivées/départs, sanctions lues dans le journal d’audit, tickets, candidatures, roadmap, tâches, publications, administration), en base et dans un salon staff. |
 | **Panel web** | Connexion Discord, tableau de bord, profil du bot (nom, avatar, statut, activité **appliqués via l’API Discord**), identité visuelle, salons, permissions par fonctionnalité, tickets, formulaires et candidatures, versions, tâches, roadmap, publications, suggestions, bugs, sessions, sondages, logs, sauvegardes. |
@@ -66,8 +68,8 @@ Toutes les commandes vérifient les permissions **côté serveur**. `/help` n’
 | Support | `/ticket add/remove/claim/close/panel` |
 | Candidatures | `/wlcreate`, `/wledit`, `/wldelete`, `/wllist`, `/wlopen`, `/wlclose`, `/wlstats`, `/wlreview` |
 | Développement | `/release create/edit/status/list/delete/sync`, `/todo add/edit/status/list/remove`, `/roadmap view/add/edit/remove/status/progress/publish` |
-| Publications | `/patchnote create/edit`, `/announcement create/edit` |
-| Communauté | `/suggestion`, `/bugreport`, `/bugs list/view`, `/testsession create/list/cancel`, `/poll create/end`, `/notifications` |
+| Publications | `/patchnote create/edit`, `/announcement create/edit`, `/massdm create/open/export/list` |
+| Communauté | `/suggestion`, `/bugreport`, `/bugs list/view`, `/testsession create/list/cancel`, `/poll create/end`, `/notifications`, `/macle`, `/invites voir/classement` |
 
 ## Architecture
 

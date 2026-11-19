@@ -23,6 +23,7 @@ import { devRouter } from './routes/dev';
 import { communityRouter } from './routes/community';
 import { publicationsRouter } from './routes/publications';
 import { logsRouter } from './routes/logs';
+import { massdmRouter } from './routes/massdm';
 
 const log = childLogger('web');
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -99,6 +100,7 @@ export function createApp() {
   app.use(communityRouter());
   app.use(publicationsRouter());
   app.use(logsRouter());
+  app.use(massdmRouter());
 
   app.use((_req, res) => res.status(404).render('error', { title: 'Introuvable', message: 'Cette page n’existe pas.', code: 404 }));
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

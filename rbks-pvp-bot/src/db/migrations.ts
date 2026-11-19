@@ -350,4 +350,51 @@ CREATE TABLE web_sessions (
 CREATE INDEX idx_web_sessions_expires ON web_sessions(expires);
 `,
   },
+  {
+    id: 2,
+    name: 'massdm_invites',
+    sql: `
+-- Envois groupés de messages privés (avec clés d'accès facultatives)
+CREATE TABLE dm_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  title TEXT NOT NULL DEFAULT '',
+  message TEXT NOT NULL DEFAULT '',
+  role_id TEXT NOT NULL,
+  with_keys INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','sending','done')),
+  created_by TEXT,
+  created_at INTEGER NOT NULL,
+  started_at INTEGER,
+  finished_at INTEGER
+);
+
+CREATE TABLE dm_recipients (
+  campaign_id INTEGER NOT NULL REFERENCES dm_campaigns(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  user_tag TEXT,
+  access_key TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed')),
+  error TEXT,
+  sent_at INTEGER,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (campaign_id, user_id)
+);
+-- Une clé ne peut exister qu'une seule fois, tous lots confondus.
+CREATE UNIQUE INDEX idx_dm_recipients_key ON dm_recipients(access_key) WHERE access_key IS NOT NULL;
+
+-- Arrivées des membres et invitation utilisée
+CREATE TABLE member_joins (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  inviter_id TEXT,
+  invite_code TEXT,
+  source TEXT NOT NULL DEFAULT 'unknown' CHECK (source IN ('invite','vanity','unknown')),
+  joined_at INTEGER NOT NULL,
+  left_at INTEGER
+);
+CREATE INDEX idx_member_joins_user ON member_joins(user_id, joined_at DESC);
+CREATE INDEX idx_member_joins_inviter ON member_joins(inviter_id);
+`,
+  },
 ];

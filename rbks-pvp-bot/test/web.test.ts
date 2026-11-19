@@ -10,6 +10,8 @@ import { forms, questions } from '../src/modules/whitelist/forms.repo';
 import { tasks, roadmap } from '../src/modules/dev/dev.repo';
 import { reasons } from '../src/modules/tickets/tickets.repo';
 import { featureRoleIds } from '../src/core/permissions';
+import { campaigns, recipients } from '../src/modules/massdm/massdm.repo';
+import { getSetting } from '../src/core/settings';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const signature = require('cookie-signature') as { sign(v: string, s: string): string };
 
@@ -105,7 +107,7 @@ test('toutes les pages du panel s’affichent pour le Fondateur', async () => {
   const cookie = login(OWNER);
   const fid = forms.create({ name: 'beta-web', title: 'Bêta', description: '', button_label: 'Go', banner_url: null, review_channel_id: null, accepted_role_id: null, created_by: OWNER });
   questions.create(fid, { label: 'Pseudo', type: 'roblox', required: true });
-  const pages = ['/', '/bot', '/settings', '/permissions', '/logs', '/tickets', '/forms', `/forms/${fid}`, '/applications', '/dev/versions', '/dev/tasks', '/dev/roadmap', '/publications', '/suggestions', '/bugs', '/bugs?status=all', '/sessions', '/polls'];
+  const pages = ['/', '/bot', '/settings', '/permissions', '/logs', '/tickets', '/forms', `/forms/${fid}`, '/applications', '/dev/versions', '/dev/tasks', '/dev/roadmap', '/publications', '/suggestions', '/bugs', '/bugs?status=all', '/sessions', '/polls', '/massdm'];
   for (const p of pages) {
     const r = await get(p, cookie);
     const body = await r.text();
@@ -151,4 +153,24 @@ test('actions du panel enregistrées en base', async () => {
   assert.equal(r.status, 302);
   const page = await (await get('/dev/tasks', cookie)).text();
   assert.match(page, /Le titre est obligatoire/);
+});
+
+test('envois groupés : téléchargement des clés pour Roblox, et bienvenue', async () => {
+  const cookie = login(OWNER);
+  const id = campaigns.create({ name: 'beta-web', roleId: role.id, withKeys: true, createdBy: OWNER });
+  recipients.addMissing(campaigns.get(id)!, [{ id: OWNER, tag: 'fondateur' }]);
+  const page = await (await get('/massdm', cookie)).text();
+  assert.match(page, /beta-web/);
+  assert.match(page, /Administrateur/);
+  const lua = await get(`/massdm/${id}/export.lua`, cookie);
+  assert.equal(lua.status, 200);
+  assert.match(lua.headers.get('content-disposition')!, /RBKSAccessKeys-beta-web\.lua/);
+  assert.equal(lua.headers.get('cache-control'), 'no-store');
+  assert.match(await lua.text(), /\["RBKS-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}"\]/);
+  assert.equal((await get(`/massdm/${id}/export.exe`, cookie)).status, 404);
+  assert.equal((await get(`/massdm/${id}/export.lua`)).status, 302, 'sans connexion : refusé');
+  const r = await post('/settings/welcome', { enabled: 'on', message: 'Salut {membre} !', imageUrl: '', dmMessage: 'MP', _csrf: CSRF }, cookie);
+  assert.equal(r.status, 302);
+  assert.equal(getSetting('welcome.message'), 'Salut {membre} !');
+  assert.equal(getSetting('welcome.dmEnabled'), false);
 });

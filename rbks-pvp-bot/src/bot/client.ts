@@ -11,6 +11,7 @@ export function createClient(): Client {
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent, // intent privilégié : contenu des messages pour les transcripts
       GatewayIntentBits.GuildModeration, // bannissements + journal d'audit (sanctions)
+      GatewayIntentBits.GuildInvites, // suivi des invitations (qui a invité qui)
     ],
     partials: [Partials.GuildMember],
     allowedMentions: { parse: ['users'], repliedUser: false },
