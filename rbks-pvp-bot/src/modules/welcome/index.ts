@@ -13,6 +13,7 @@ import { isHttpUrl, normalizeName, sanitizeMentions, truncate } from '../../core
 import { tryGetGuild } from '../../bot/client';
 import { ChannelType } from 'discord.js';
 import { childLogger } from '../../core/logger';
+import { progress } from '../../core/progress';
 
 const log = childLogger('welcome');
 
@@ -179,6 +180,7 @@ export function welcomeEmbed(ctx: WelcomeContext, avatarUrl: string | null) {
 async function onJoin(member: GuildMember): Promise<JoinSource> {
   const join = await withLock('invites', () => resolveJoin(member.guild));
   joins.record(member.id, join);
+  progress(join.inviterId);
   if (member.user.bot) return join;
   const ctx: WelcomeContext = {
     userId: member.id,

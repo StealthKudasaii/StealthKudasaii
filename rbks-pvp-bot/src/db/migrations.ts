@@ -397,4 +397,59 @@ CREATE INDEX idx_member_joins_user ON member_joins(user_id, joined_at DESC);
 CREATE INDEX idx_member_joins_inviter ON member_joins(inviter_id);
 `,
   },
+  {
+    id: 3,
+    name: 'rewards',
+    sql: `
+-- Comptes Roblox reliés (connexion officielle Roblox OAuth)
+CREATE TABLE roblox_links (
+  discord_id TEXT PRIMARY KEY,
+  roblox_id TEXT NOT NULL UNIQUE,
+  roblox_username TEXT NOT NULL,
+  roblox_display_name TEXT,
+  linked_at INTEGER NOT NULL,
+  needs_sync INTEGER NOT NULL DEFAULT 1,
+  synced_at INTEGER,
+  sync_error TEXT
+);
+
+-- Défis de /rewards et récompenses associées (identifiant lu par le jeu)
+CREATE TABLE reward_challenges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  metric TEXT NOT NULL,
+  threshold INTEGER NOT NULL DEFAULT 1,
+  reward_id TEXT NOT NULL,
+  reward_label TEXT NOT NULL,
+  emoji TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE reward_unlocks (
+  user_id TEXT NOT NULL,
+  challenge_id INTEGER NOT NULL REFERENCES reward_challenges(id) ON DELETE CASCADE,
+  unlocked_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, challenge_id)
+);
+
+-- Activité Discord comptée pour les défis
+CREATE TABLE user_activity (
+  user_id TEXT PRIMARY KEY,
+  messages INTEGER NOT NULL DEFAULT 0,
+  voice_seconds INTEGER NOT NULL DEFAULT 0,
+  last_message_at INTEGER
+);
+
+-- Une réaction comptée au plus une fois par annonce et par membre
+CREATE TABLE announcement_reactions (
+  user_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  reacted_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, message_id)
+);
+`,
+  },
 ];

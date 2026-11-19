@@ -22,6 +22,7 @@ import { discordTs, parseDuration } from '../../core/time';
 import { progressBar, sanitizeMentions, splitLines, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
 import { audit } from '../audit/audit';
+import { progress } from '../../core/progress';
 
 const log = childLogger('polls');
 const MAX_OPTIONS = 20;
@@ -200,6 +201,7 @@ export const pollsModule: BotModule = {
           const indexes = i.values.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < optionsOf(p).length);
           if (!indexes.length || (!p.multi && indexes.length > 1)) return fail(i, 'Choix invalide.');
           await withLock(`poll:${p.id}`, async () => polls.vote(p.id, i.user.id, indexes));
+          progress(i.user.id);
           await i.update(pollPayload(polls.get(p.id)!));
           return ephemeral(i, infoEmbed(`Vote enregistré : ${indexes.map((x) => `${LETTERS[x]} ${optionsOf(p)[x]}`).join(', ')}`));
         }

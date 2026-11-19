@@ -25,6 +25,7 @@ import { hitCooldown, withLock } from '../../core/guards';
 import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
 import { audit } from '../audit/audit';
+import { progress } from '../../core/progress';
 
 const log = childLogger('suggestions');
 
@@ -117,6 +118,7 @@ export async function setSuggestionStatus(id: number, status: SuggestionStatus, 
   const before = suggestions.get(id);
   if (!before) throw new Error('Suggestion introuvable');
   suggestions.setStatus(id, status, response, actorId);
+  progress(before.user_id);
   await refreshSuggestion(id).catch((e) => log.warn({ err: e }, 'Mise à jour suggestion impossible'));
   await audit({ type: 'community', action: 'suggestion_status', actorId, target: `Suggestion n°${id}`, message: `Suggestion « ${before.title} » → ${SUGGESTION_STATUS[status].label}${response ? ` : ${response}` : ''}.`, color: SUGGESTION_STATUS[status].color });
   if (status !== before.status) {

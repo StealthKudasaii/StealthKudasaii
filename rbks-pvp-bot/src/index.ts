@@ -2,6 +2,7 @@ import { env, databasePath } from './config/env';
 import { logger } from './core/logger';
 import { initDb, closeDb } from './db';
 import { seed } from './db/seed';
+import { seedChallenges } from './modules/rewards/rewards.repo';
 import { setTimezone } from './core/time';
 import { startBot } from './bot';
 import { startScheduler, stopScheduler } from './core/scheduler';
@@ -19,6 +20,7 @@ async function main() {
   setTimezone(config.TIMEZONE);
   initDb(databasePath());
   seed();
+  seedChallenges();
   logger.info('Base de données prête');
 
   const web = config.WEB_ENABLED ? await startWeb() : null;

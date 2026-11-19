@@ -26,6 +26,7 @@ import { discordTs } from '../../core/time';
 import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
 import { audit } from '../audit/audit';
+import { progress } from '../../core/progress';
 
 const log = childLogger('bugs');
 
@@ -115,6 +116,7 @@ export async function setBugStatus(id: number, status: BugStatus, actorId: strin
   const b = bugs.get(id);
   if (!b) throw new Error('Bug introuvable');
   bugs.setStatus(id, status);
+  if (status === 'resolved') progress(b.user_id);
   if (status === 'acknowledged' && !b.assignee_id) bugs.assign(id, actorId);
   bugs.addEvent(id, actorId, 'status', `${BUG_STATUS[b.status].label} → ${BUG_STATUS[status].label}${comment ? ` : ${comment}` : ''}`);
   await refreshBug(id);

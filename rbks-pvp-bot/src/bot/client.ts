@@ -12,8 +12,11 @@ export function createClient(): Client {
       GatewayIntentBits.MessageContent, // intent privilégié : contenu des messages pour les transcripts
       GatewayIntentBits.GuildModeration, // bannissements + journal d'audit (sanctions)
       GatewayIntentBits.GuildInvites, // suivi des invitations (qui a invité qui)
+      GatewayIntentBits.GuildVoiceStates, // temps en vocal (défis /rewards)
+      GatewayIntentBits.GuildMessageReactions, // réactions aux annonces (défis /rewards)
     ],
-    partials: [Partials.GuildMember],
+    // Message/Reaction/User : réactions sur des annonces publiées avant le dernier démarrage du bot.
+    partials: [Partials.GuildMember, Partials.Message, Partials.Reaction, Partials.User],
     allowedMentions: { parse: ['users'], repliedUser: false },
   });
   return client;

@@ -23,6 +23,8 @@ import { publicationsModule } from '../modules/publications';
 import { massdmModule } from '../modules/massdm';
 import { resumeCampaigns } from '../modules/massdm/massdm.service';
 import { welcomeModule, loadInviteCache } from '../modules/welcome';
+import { rewardsModule } from '../modules/rewards';
+import { attachRewardTracking } from '../modules/rewards/rewards.service';
 
 const log = childLogger('bot');
 
@@ -40,6 +42,7 @@ export const MODULES = [
   publicationsModule,
   massdmModule,
   welcomeModule,
+  rewardsModule,
 ];
 
 let registered = false;
@@ -59,6 +62,7 @@ export async function startBot() {
   const client = createClient();
   attachInteractionHandler(client);
   attachEvents(client);
+  attachRewardTracking(client);
 
   client.once(Events.ClientReady, async (c) => {
     log.info({ tag: c.user.tag }, 'Bot connecté à Discord');

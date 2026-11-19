@@ -1,0 +1,83 @@
+<%- include('partials/head') %>
+<div class="card">
+  <h2>⚙️ Configuration Roblox</h2>
+  <div class="grid grid-2">
+    <div>
+      <h3>🔗 Liaison des comptes (connexion officielle Roblox)</h3>
+      <% if (cfg.oauth && cfg.https) { %><p><span class="badge ok">✅ Active</span></p><% } else { %>
+      <ol>
+        <li class="<%= cfg.https ? 'status-on' : '' %>">Le panel doit être accessible depuis Internet en <b>HTTPS</b> avec un nom de domaine (<code>PUBLIC_URL</code>). <%= cfg.https ? '✅' : '❌ actuellement : ' + brandUrl %></li>
+        <li>Creator Dashboard Roblox → <b>Credentials → OAuth 2.0 Apps</b> → crée une application, scopes <code>openid</code> et <code>profile</code>, URL de redirection :<br><code><%= cfg.redirectUri %></code></li>
+        <li class="<%= cfg.oauth ? 'status-on' : '' %>">Mets l’identifiant et le secret dans <code>.env</code> : <code>ROBLOX_OAUTH_CLIENT_ID</code>, <code>ROBLOX_OAUTH_CLIENT_SECRET</code>, puis redémarre le bot. <%= cfg.oauth ? '✅' : '❌' %></li>
+      </ol>
+      <% } %>
+    </div>
+    <div>
+      <h3>🎮 Livraison en jeu (Open Cloud)</h3>
+      <% if (cfg.openCloud) { %>
+        <p><span class="badge ok">✅ Configurée</span> Expérience <code><%= cfg.universe %></code>, DataStore <code><%= cfg.datastore %></code>, sujet <code><%= cfg.topic %></code>.</p>
+        <form method="post" action="/rewards/test"><input type="hidden" name="_csrf" value="<%= csrf %>"><button type="submit">Tester la connexion</button></form>
+      <% } else { %>
+      <ol>
+        <li>Creator Dashboard → <b>Credentials → API Keys</b> → crée une clé avec, pour ton expérience : <b>DataStore</b> (lecture + écriture d’entrées) et <b>Messaging Service</b> (publication).</li>
+        <li>Mets dans <code>.env</code> : <code>ROBLOX_OPEN_CLOUD_API_KEY</code> et <code>ROBLOX_UNIVERSE_ID</code> (identifiant de l’expérience, visible dans le Creator Dashboard), puis redémarre le bot.</li>
+        <li>Ajoute le script ci-dessous dans ton jeu.</li>
+      </ol>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="defis">
+  <h2>🏆 Défis (<%= list.length %>)</h2>
+  <% for (const c of list) { %>
+  <details>
+    <summary><span><%= c.emoji || metrics[c.metric].emoji %> <b><%= c.title %></b> <span class="muted">— <%= metrics[c.metric].label %> ≥ <%= c.threshold %></span></span>
+      <span class="row"><span class="badge">🎁 <%= c.reward_label %></span><code><%= c.reward_id %></code><% if (!c.enabled) { %><span class="badge warn">désactivé</span><% } %></span></summary>
+    <form method="post" action="/rewards/challenges">
+      <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="id" value="<%= c.id %>">
+      <%- include('partials/challenge-fields', { c, metrics }) %>
+      <div class="actions"><button class="btn-primary btn-sm" type="submit">Enregistrer</button><button class="btn-danger btn-sm" name="delete" value="1" type="submit" data-confirm="Supprimer ce défi ?">Supprimer</button></div>
+    </form>
+  </details>
+  <% } %>
+  <h3 style="margin-top:16px">Ajouter un défi</h3>
+  <form method="post" action="/rewards/challenges">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <%- include('partials/challenge-fields', { c: null, metrics }) %>
+    <div class="actions"><button type="submit">➕ Ajouter</button></div>
+  </form>
+</div>
+
+<div class="card" id="comptes">
+  <h2>🔗 Comptes reliés (<%= links.length %>)
+    <form method="post" action="/rewards/sync" class="inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-sm" type="submit">Tout resynchroniser</button></form>
+  </h2>
+  <% if (!links.length) { %><div class="empty">Aucun compte relié pour le moment.</div><% } else { %>
+  <div class="table-wrap"><table>
+    <tr><th>Discord</th><th>Roblox</th><th>Défis réussis</th><th>Livraison</th><th>Relié le</th><th></th></tr>
+    <% for (const l of links) { %>
+    <tr>
+      <td><%= memberName(l.discord_id) %></td>
+      <td><a href="https://www.roblox.com/users/<%= l.roblox_id %>/profile" target="_blank" rel="noopener"><%= l.roblox_username %></a></td>
+      <td><%= l.unlocked %></td>
+      <td><% if (l.sync_error) { %><span class="badge danger" title="<%= l.sync_error %>">⚠️ échec</span><div class="muted" style="font-size:12px"><%= truncate(l.sync_error, 90) %></div><% } else if (l.needs_sync) { %><span class="badge warn">⏳ en attente</span><% } else { %><span class="badge ok">✅ <%= fmt(l.synced_at) %></span><% } %></td>
+      <td class="muted"><%= fmt(l.linked_at, false) %></td>
+      <td><form method="post" action="/rewards/sync"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="discord_id" value="<%= l.discord_id %>"><button class="btn-sm" type="submit">Renvoyer</button></form></td>
+    </tr>
+    <% } %>
+  </table></div>
+  <% } %>
+  <p class="hint">Pour délier un compte (si un joueur veut en relier un autre) : <code>/rewardsadmin delier</code> sur Discord.</p>
+</div>
+
+<div class="card">
+  <h2>📜 Script à ajouter dans le jeu <a class="btn btn-sm" href="/rewards/RBKSRewards.server.lua">Télécharger</a></h2>
+  <ol>
+    <li>Roblox Studio → <b>ServerScriptService</b> → nouveau <b>Script</b> (pas LocalScript), colle le contenu ci-dessous.</li>
+    <li>Remplis la table <code>REWARDS</code> : pour chaque identifiant de récompense (colonne « Identifiant pour le jeu » ci-dessus), ce que le joueur reçoit dans ton jeu.</li>
+    <li>Le script ne donne jamais deux fois la même récompense (il mémorise ce qui a été donné).</li>
+  </ol>
+  <pre class="answer pre" style="max-height:420px;overflow:auto;font-size:12px"><%= lua %></pre>
+</div>
+<%- include('partials/foot') %>

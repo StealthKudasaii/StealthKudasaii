@@ -27,6 +27,7 @@ export const FEATURES = {
   'suggestions.manage': { label: 'Gérer les suggestions', group: 'Communauté', defaults: ['founder', 'cofounder', 'admin', 'moderator'] },
   'bugs.manage': { label: 'Gérer les bugs', group: 'Communauté', defaults: ['founder', 'cofounder', 'admin', 'moderator', 'developer'] },
   'testsessions.manage': { label: 'Sessions de test', group: 'Communauté', defaults: ['founder', 'cofounder', 'admin', 'developer'] },
+  'rewards.manage': { label: 'Récompenses /rewards et comptes Roblox', group: 'Communauté', defaults: ['founder', 'cofounder'] },
   'massdm.manage': { label: 'Messages privés groupés et clés d’accès', group: 'Communication', defaults: ['founder', 'cofounder'] },
   'polls.manage': { label: 'Sondages', group: 'Communauté', defaults: ['founder', 'cofounder', 'admin', 'moderator'] },
 } satisfies Record<string, { label: string; group: string; defaults: RoleKey[] }>;

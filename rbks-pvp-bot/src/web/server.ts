@@ -24,6 +24,8 @@ import { communityRouter } from './routes/community';
 import { publicationsRouter } from './routes/publications';
 import { logsRouter } from './routes/logs';
 import { massdmRouter } from './routes/massdm';
+import { robloxRouter } from './routes/roblox';
+import { rewardsRouter } from './routes/rewards';
 
 const log = childLogger('web');
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -56,7 +58,7 @@ export function createApp() {
           styleSrcAttr: ["'unsafe-inline'"],
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', 'https://media.discordapp.net', 'https:'],
-          formAction: ["'self'", 'https://discord.com'],
+          formAction: ["'self'", 'https://discord.com', 'https://apis.roblox.com', 'https://authorize.roblox.com'],
           frameAncestors: ["'none'"],
           upgradeInsecureRequests: e.PUBLIC_URL.startsWith('https') ? [] : null,
         },
@@ -78,7 +80,7 @@ export function createApp() {
     }),
   );
   app.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }));
-  app.use(['/auth', '/login'], rateLimit({ windowMs: 15 * 60_000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false }));
+  app.use(['/auth', '/login', '/roblox'], rateLimit({ windowMs: 15 * 60_000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false }));
 
   // Helpers disponibles dans toutes les vues.
   Object.assign(app.locals, { C: constants, fmt: formatDate, toInputValue, toFrInput, progressBar, truncate, memberName, badge, brandUrl: e.PUBLIC_URL });
@@ -86,6 +88,8 @@ export function createApp() {
 
   app.get('/health', (_req, res) => res.json({ ok: true, discord: isBotReady() }));
   app.use(authRouter());
+  // Liaison Roblox : pages publiques (le joueur n'a pas accès au panel).
+  app.use(robloxRouter());
 
   // Tout ce qui suit exige une session valide ET un rôle autorisé (revérifié à chaque requête).
   app.use(requireAuth);
@@ -101,6 +105,7 @@ export function createApp() {
   app.use(publicationsRouter());
   app.use(logsRouter());
   app.use(massdmRouter());
+  app.use(rewardsRouter());
 
   app.use((_req, res) => res.status(404).render('error', { title: 'Introuvable', message: 'Cette page n’existe pas.', code: 404 }));
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

@@ -31,6 +31,18 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   BACKUP_RETENTION: z.coerce.number().int().min(1).max(365).default(14),
   REGISTER_COMMANDS_ON_START: bool(true),
+  // Roblox (facultatif : /rewards fonctionne sans, mais sans liaison ni livraison en jeu)
+  ROBLOX_OAUTH_CLIENT_ID: z.string().trim().optional().transform((v) => v || undefined),
+  ROBLOX_OAUTH_CLIENT_SECRET: z.string().trim().optional().transform((v) => v || undefined),
+  ROBLOX_OPEN_CLOUD_API_KEY: z.string().trim().optional().transform((v) => v || undefined),
+  ROBLOX_UNIVERSE_ID: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined)
+    .refine((v) => v === undefined || /^\d+$/.test(v), 'ROBLOX_UNIVERSE_ID doit être un nombre (Creator Dashboard → ton expérience)'),
+  ROBLOX_DATASTORE: z.string().trim().default('RBKSRewards'),
+  ROBLOX_MESSAGING_TOPIC: z.string().trim().default('RBKSRewards'),
 });
 
 export type Env = z.infer<typeof schema>;

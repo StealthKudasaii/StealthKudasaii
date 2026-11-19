@@ -21,6 +21,7 @@ import { sanitizeMentions, truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
 import { getSetting } from '../../core/settings';
 import { audit } from '../audit/audit';
+import { progress } from '../../core/progress';
 import { applications, answersOf, choicesOf, drafts, forms, questions, type Application, type Form, type Question } from './forms.repo';
 import { FORM_STATE_LABEL, LIMITS, answerText, formState, pages, snapshotAnswers, validateAnswers } from './forms.logic';
 
@@ -302,6 +303,7 @@ export async function decide(appId: number, actorId: string, status: Exclude<App
     if (status === 'on_hold' && before.status === 'on_hold') return { ok: false, error: 'Elle est déjà en attente.', warnings: [] };
     if (!applications.decide(appId, status, actorId, reason)) return { ok: false, error: 'Elle vient d’être traitée par quelqu’un d’autre.', warnings: [] };
     applications.addEvent(appId, actorId, status, reason);
+    if (status === 'accepted') progress(before.user_id);
     const a = applications.get(appId)!;
     const f = forms.get(a.form_id);
     const warnings: string[] = [];

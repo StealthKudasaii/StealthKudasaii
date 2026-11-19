@@ -14,6 +14,7 @@ import { discordTs, formatDuration, parseDate } from '../../core/time';
 import { truncate } from '../../core/text';
 import { childLogger } from '../../core/logger';
 import { audit } from '../audit/audit';
+import { progress } from '../../core/progress';
 import { notificationRoleId } from '../notifications';
 
 const log = childLogger('testsessions');
@@ -164,6 +165,7 @@ export async function tickSessions(): Promise<void> {
         await refreshSession(s.id);
       } else if (s.status === 'live' && now >= s.starts_at + (s.duration_minutes ?? 120) * 6e4) {
         sessions.setStatus(s.id, 'ended');
+        progress(...sessions.participants(s.id).filter((x) => x.status === 'registered').map((x) => x.user_id));
         await refreshSession(s.id);
       }
     } catch (e) {

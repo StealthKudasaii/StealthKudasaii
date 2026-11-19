@@ -12,6 +12,8 @@ import { reasons } from '../src/modules/tickets/tickets.repo';
 import { featureRoleIds } from '../src/core/permissions';
 import { campaigns, recipients } from '../src/modules/massdm/massdm.repo';
 import { getSetting } from '../src/core/settings';
+import { challenges as rewardChallenges } from '../src/modules/rewards/rewards.repo';
+const challengesList = () => rewardChallenges.list();
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const signature = require('cookie-signature') as { sign(v: string, s: string): string };
 
@@ -107,7 +109,7 @@ test('toutes les pages du panel s’affichent pour le Fondateur', async () => {
   const cookie = login(OWNER);
   const fid = forms.create({ name: 'beta-web', title: 'Bêta', description: '', button_label: 'Go', banner_url: null, review_channel_id: null, accepted_role_id: null, created_by: OWNER });
   questions.create(fid, { label: 'Pseudo', type: 'roblox', required: true });
-  const pages = ['/', '/bot', '/settings', '/permissions', '/logs', '/tickets', '/forms', `/forms/${fid}`, '/applications', '/dev/versions', '/dev/tasks', '/dev/roadmap', '/publications', '/suggestions', '/bugs', '/bugs?status=all', '/sessions', '/polls', '/massdm'];
+  const pages = ['/', '/bot', '/settings', '/permissions', '/logs', '/tickets', '/forms', `/forms/${fid}`, '/applications', '/dev/versions', '/dev/tasks', '/dev/roadmap', '/publications', '/suggestions', '/bugs', '/bugs?status=all', '/sessions', '/polls', '/massdm', '/rewards'];
   for (const p of pages) {
     const r = await get(p, cookie);
     const body = await r.text();
@@ -173,4 +175,23 @@ test('envois groupés : téléchargement des clés pour Roblox, et bienvenue', a
   assert.equal(r.status, 302);
   assert.equal(getSetting('welcome.message'), 'Salut {membre} !');
   assert.equal(getSetting('welcome.dmEnabled'), false);
+});
+
+test('récompenses : pages publiques de liaison et gestion des défis', async () => {
+  const cookie = login(OWNER);
+  const link = await get('/roblox/link?t=abc');
+  assert.equal(link.status, 503, 'liaison non configurée');
+  const cb = await get('/roblox/callback?error=access_denied');
+  assert.equal(cb.status, 400);
+  assert.match(await cb.text(), /Connexion annulée/);
+  const page = await (await get('/rewards', cookie)).text();
+  assert.match(page, /Relier son compte Roblox/);
+  assert.match(page, /RBKSRewards/);
+  let r = await post('/rewards/challenges', { title: 'Mauvais', metric: 'messages', threshold: '10', reward_label: 'X', reward_id: 'pas valide !', enabled: 'on', _csrf: CSRF }, cookie);
+  assert.equal(r.status, 302);
+  assert.ok(!challengesList().some((c) => c.title === 'Mauvais'));
+  r = await post('/rewards/challenges', { title: 'Envoyer 50 messages', metric: 'messages', threshold: '50', reward_label: '100 Ryō', reward_id: 'ryo_100', enabled: 'on', _csrf: CSRF }, cookie);
+  assert.ok(challengesList().some((c) => c.title === 'Envoyer 50 messages' && c.threshold === 50));
+  const lua = await get('/rewards/RBKSRewards.server.lua', cookie);
+  assert.equal(lua.status, 200);
 });

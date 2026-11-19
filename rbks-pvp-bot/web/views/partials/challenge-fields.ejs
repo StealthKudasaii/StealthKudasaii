@@ -1,0 +1,12 @@
+<% const c = locals.c || {}; %>
+<div class="grid grid-3">
+  <div><label>Titre du défi</label><input type="text" name="title" maxlength="100" value="<%= c.title || '' %>" required></div>
+  <div><label>Type</label><select name="metric"><% for (const [k, m] of Object.entries(metrics)) { %><option value="<%= k %>" <%= c.metric === k ? 'selected' : '' %>><%= m.emoji %> <%= m.label %></option><% } %></select></div>
+  <div><label>Objectif (seuil)</label><input type="number" name="threshold" min="1" value="<%= c.threshold || 1 %>"></div>
+  <div><label>Récompense affichée</label><input type="text" name="reward_label" maxlength="100" value="<%= c.reward_label || '' %>" placeholder="Titre « Genin »" required></div>
+  <div><label>Identifiant pour le jeu</label><input type="text" name="reward_id" maxlength="50" value="<%= c.reward_id || '' %>" placeholder="title_genin" required pattern="[A-Za-z0-9_.\-]{1,50}"></div>
+  <div><label>Emoji</label><input type="text" name="emoji" maxlength="10" value="<%= c.emoji || '' %>"></div>
+</div>
+<label>Description (facultatif)</label><input type="text" name="description" maxlength="200" value="<%= c.description || '' %>">
+<div class="grid grid-2"><div><label>Position</label><input type="number" name="position" value="<%= c.position ?? 0 %>"></div><div><label class="check" style="margin-top:32px"><input type="checkbox" name="enabled" <%= c.enabled === 0 ? '' : 'checked' %>> Actif</label></div></div>
+<div class="hint">Types : <% for (const [k, m] of Object.entries(metrics)) { %><b><%= m.label %></b> : <%= m.help %>. <% } %></div>
